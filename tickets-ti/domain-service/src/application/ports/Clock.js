@@ -1,7 +1,7 @@
 const { definirPuerto } = require('./definirPuerto');
 
 /**
- * Reloj inyectable: los casos de uso nunca llaman a new Date() directamente.
+ * Reloj inyectable: los casos de uso nunca leen el reloj del sistema directamente.
  *
  * ahora() → Date
  */
