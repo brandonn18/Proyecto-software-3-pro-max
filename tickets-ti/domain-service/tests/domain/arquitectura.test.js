@@ -8,8 +8,10 @@ const SRC = path.join(__dirname, '../../src');
 const FRAMEWORKS = [/^sequelize/, /^pg/, /^express/, /^socket\.io/, /^nodemailer/, /^axios/, /^node-cron/];
 
 const CAPAS = [
-  { nombre: 'domain', prohibidos: [...FRAMEWORKS, /application\//, /infrastructure\//] },
-  { nombre: 'application', prohibidos: [...FRAMEWORKS, /infrastructure\//] },
+  { nombre: 'domain', prohibidos: [...FRAMEWORKS, /application\//, /infrastructure\//], sinReloj: true },
+  { nombre: 'application', prohibidos: [...FRAMEWORKS, /infrastructure\//], sinReloj: true },
+  // Los controllers solo traducen HTTP → caso de uso: nada de Sequelize ni repositorios
+  { nombre: 'infrastructure/http', prohibidos: [/^sequelize/, /^pg/, /persistencia\//, /directorio\//], sinReloj: false },
 ];
 
 const listarJs = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -21,7 +23,7 @@ const listarJs = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((
 const importsDe = (archivo) =>
   [...fs.readFileSync(archivo, 'utf8').matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]);
 
-describe.each(CAPAS)('Arquitectura de $nombre/', ({ nombre, prohibidos }) => {
+describe.each(CAPAS)('Arquitectura de $nombre/', ({ nombre, prohibidos, sinReloj }) => {
   const dir = path.join(SRC, nombre);
   const archivos = listarJs(dir);
 
@@ -35,8 +37,10 @@ describe.each(CAPAS)('Arquitectura de $nombre/', ({ nombre, prohibidos }) => {
       expect(ilegales).toEqual([]);
     });
 
-  it('no debería leer el reloj del sistema (usa el puerto Clock)', () => {
-    const conReloj = archivos.filter((a) => /new Date\(\)|Date\.now\(\)/.test(fs.readFileSync(a, 'utf8')));
-    expect(conReloj.map((a) => path.relative(dir, a))).toEqual([]);
-  });
+  if (sinReloj) {
+    it('no debería leer el reloj del sistema (usa el puerto Clock)', () => {
+      const conReloj = archivos.filter((a) => /new Date\(\)|Date\.now\(\)/.test(fs.readFileSync(a, 'utf8')));
+      expect(conReloj.map((a) => path.relative(dir, a))).toEqual([]);
+    });
+  }
 });
