@@ -6,6 +6,7 @@ node_modules/
 # Variables de entorno con credenciales reales
 .env
 .env.local
+.env.test
 .env.development.local
 .env.test.local
 .env.production.local
