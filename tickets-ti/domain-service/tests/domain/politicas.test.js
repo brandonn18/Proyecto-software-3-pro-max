@@ -150,6 +150,15 @@ describe('politicaAcceso', () => {
     expect(() => politicaAcceso.exigirCambiarEstado(ticket, admin)).not.toThrow();
   });
 
+  it('debería dejar reabrir solo al admin y al usuario dueño', () => {
+    expect(politicaAcceso.puedeReabrir(ticket, admin)).toBe(true);
+    expect(politicaAcceso.puedeReabrir(ticket, duenio)).toBe(true);
+    expect(politicaAcceso.puedeReabrir(ticket, otroUsuario)).toBe(false);
+    expect(politicaAcceso.puedeReabrir(ticket, tecnicoAsignado)).toBe(false);
+    expect(() => politicaAcceso.exigirReabrir(ticket, tecnicoAsignado)).toThrow('Sin permiso para reabrir este ticket');
+    expect(() => politicaAcceso.exigirReabrir(ticket, duenio)).not.toThrow();
+  });
+
   it('debería filtrar el listado por rol', () => {
     expect(politicaAcceso.filtroDeListado(duenio)).toEqual({ usuarioId: 10 });
     expect(politicaAcceso.filtroDeListado(tecnicoAsignado)).toEqual({ tecnicoId: 20 });

@@ -15,6 +15,12 @@ const puedeCambiarEstado = (ticket, actor) => {
   return actor.rol === ROLES.TECNICO && ticket.tecnicoId === actor.id;
 };
 
+// Reabren el admin y el usuario dueño del ticket; el técnico no (tabla de permisos)
+const puedeReabrir = (ticket, actor) => {
+  if (actor.rol === ROLES.ADMIN) return true;
+  return actor.rol === ROLES.USUARIO && ticket.usuarioId === actor.id;
+};
+
 // Filtro de listado: usuario ve los suyos, técnico los asignados, admin todos
 const filtroDeListado = (actor) => {
   if (actor.rol === ROLES.USUARIO) return { usuarioId: actor.id };
@@ -30,4 +36,10 @@ const exigirCambiarEstado = (ticket, actor) => {
   if (!puedeCambiarEstado(ticket, actor)) throw _denegar('Sin permiso para modificar este ticket');
 };
 
-module.exports = { puedeVer, puedeCambiarEstado, filtroDeListado, exigirVer, exigirCambiarEstado };
+const exigirReabrir = (ticket, actor) => {
+  if (!puedeReabrir(ticket, actor)) throw _denegar('Sin permiso para reabrir este ticket');
+};
+
+module.exports = {
+  puedeVer, puedeCambiarEstado, puedeReabrir, filtroDeListado, exigirVer, exigirCambiarEstado, exigirReabrir,
+};
