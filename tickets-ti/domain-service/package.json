@@ -1,0 +1,14 @@
+{
+  "name": "tickets-ti-domain-service",
+  "version": "1.0.0",
+  "description": "Servicio de tickets, SLA, asignación y notificaciones (arquitectura hexagonal)",
+  "main": "server.js",
+  "scripts": {
+    "test": "jest --runInBand --forceExit --detectOpenHandles",
+    "test:coverage": "jest --runInBand --coverage --forceExit --detectOpenHandles",
+    "test:domain": "jest tests/domain"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
