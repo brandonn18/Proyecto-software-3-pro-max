@@ -50,3 +50,16 @@ describe('requerirEnv', () => {
     expect(requerirEnv('NODE_ENV')).toBe('test');
   });
 });
+
+describe('app detrás de un proxy', () => {
+  it('debería confiar en X-Forwarded-For solo con TRUST_PROXY', () => {
+    jest.isolateModules(() => {
+      process.env.TRUST_PROXY = '1';
+      expect(require('../src/app').get('trust proxy')).toBe(1);
+      delete process.env.TRUST_PROXY;
+    });
+    jest.isolateModules(() => {
+      expect(require('../src/app').get('trust proxy')).toBe(false);
+    });
+  });
+});

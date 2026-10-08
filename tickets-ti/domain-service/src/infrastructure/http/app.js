@@ -23,8 +23,11 @@ const _montarRutas = (app, casos, verificarToken) => {
 
 // Adaptador de entrada HTTP. Recibe los casos de uso ya construidos (no
 // conoce Sequelize ni authcore): ver src/composicion.js.
-const crearApp = ({ casos, jwtSecret, origenPermitido, esTest = false, logger = console }) => {
+// trustProxy: número de proxies delante (nginx/ALB). Sin él, req.ip es la IP
+// del proxy y el rate limit se comparte entre todos los usuarios.
+const crearApp = ({ casos, jwtSecret, origenPermitido, esTest = false, logger = console, trustProxy = 0 }) => {
   const app = express();
+  if (trustProxy > 0) app.set('trust proxy', trustProxy);
   app.use(helmet());
   app.use(cors({ origin: origenPermitido, credentials: true }));
   if (!esTest) app.use(morgan('combined'));

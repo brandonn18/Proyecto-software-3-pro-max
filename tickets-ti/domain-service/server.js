@@ -27,7 +27,8 @@ const iniciar = async () => {
   const { casos } = componer({
     sequelize, modelos, realtime, email: _crearEmail(), userDirectory: new infra.AuthcoreUserAdapter(infra.configAuthcore()),
   });
-  const server = http.createServer(crearApp({ casos, jwtSecret, origenPermitido }));
+  const trustProxy = parseInt(process.env.TRUST_PROXY || '0', 10);
+  const server = http.createServer(crearApp({ casos, jwtSecret, origenPermitido, trustProxy }));
   realtime.adjuntar(server);
   programarTareas({ casos });
 

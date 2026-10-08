@@ -96,3 +96,13 @@ describe('programarTareas', () => {
     expect(logger.error).toHaveBeenCalledWith('[SLA] error:', 'BD caída');
   });
 });
+
+describe('crearApp detrás de un proxy', () => {
+  const { crearApp } = require('../../src/infrastructure/http/app');
+
+  it('debería confiar en X-Forwarded-For solo si se configura trustProxy', () => {
+    const base = { casos: s.casos, jwtSecret: 'x', esTest: true };
+    expect(crearApp({ ...base, trustProxy: 1 }).get('trust proxy')).toBe(1);
+    expect(crearApp(base).get('trust proxy')).toBe(false);
+  });
+});
