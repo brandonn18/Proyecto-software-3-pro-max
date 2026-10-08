@@ -53,7 +53,9 @@ class TicketRepositoryEnMemoria extends TicketRepository {
   async eliminar(id) { this.eliminados.add(id); }
 
   async listar({ filtros = {}, page, limit }) {
-    const todos = this._vivos().filter((t) => _cumpleFiltros(t, filtros)).sort((a, b) => b.createdAt - a.createdAt);
+    const todos = this._vivos()
+      .filter((t) => _cumpleFiltros(t, filtros))
+      .sort((a, b) => (b.createdAt - a.createdAt) || b.id.localeCompare(a.id));
     return { items: todos.slice((page - 1) * limit, page * limit), total: todos.length };
   }
 

@@ -49,7 +49,8 @@ class VerificarSLA {
     const { notificaciones, realtime, email, userDirectory, ticketRepository, logger } = this.deps;
     const redondeado = Math.round(porcentaje);
     await notificaciones.notificar({
-      usuarioId: ticket.tecnicoId, ticketId: ticket.id, tipo: 'sla_alerta', mensaje: mensajes.alertaSLA(ticket, porcentaje),
+      usuarioId: ticket.tecnicoId, ticketId: ticket.id, tipo: 'sla_alerta',
+      mensaje: mensajes.alertaSLA(ticket, porcentaje), push: true,
     });
     enSegundoPlano(logger, 'Email SLA', async () => {
       const tecnico = await userDirectory.obtenerUsuario(ticket.tecnicoId);

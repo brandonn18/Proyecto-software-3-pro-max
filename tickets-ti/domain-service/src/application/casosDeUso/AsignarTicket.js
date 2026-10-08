@@ -38,7 +38,7 @@ class AsignarTicket {
       detalle: { tecnicoId: tecnico.id, tecnicoNombre: tecnico.nombre },
     });
     await notificaciones.notificar({
-      usuarioId: tecnico.id, ticketId: ticket.id, tipo: 'asignacion', mensaje: mensajes.asignacion(ticket),
+      usuarioId: tecnico.id, ticketId: ticket.id, tipo: 'asignacion', mensaje: mensajes.asignacion(ticket), push: true,
     });
     enSegundoPlano(logger, 'Email asignación', () => email.enviarTicketAsignado(tecnico, ticket));
   }

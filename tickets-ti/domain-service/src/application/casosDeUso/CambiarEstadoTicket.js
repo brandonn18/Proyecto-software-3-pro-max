@@ -35,7 +35,8 @@ class CambiarEstadoTicket {
   async _avisarResolucion(ticket, estadoAnterior) {
     const { notificaciones, realtime, email, userDirectory, logger } = this.deps;
     await notificaciones.notificar({
-      usuarioId: ticket.usuarioId, ticketId: ticket.id, tipo: 'resolucion', mensaje: mensajes.resolucion(ticket),
+      usuarioId: ticket.usuarioId, ticketId: ticket.id, tipo: 'resolucion',
+      mensaje: mensajes.resolucion(ticket), push: false, // ya avisa ticket:estado_cambiado
     });
     realtime.emitirAUsuario(ticket.usuarioId, 'ticket:estado_cambiado', {
       ticketId: ticket.id, estadoAnterior, nuevoEstado: ticket.estado,

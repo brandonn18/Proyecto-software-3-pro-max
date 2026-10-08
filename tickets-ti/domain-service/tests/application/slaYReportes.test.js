@@ -19,7 +19,7 @@ describe('CP010 — VerificarSLA', () => {
     const alertas = await casos.verificarSLA.ejecutar();
     await esperarSegundoPlano();
     expect(alertas).toBe(1);
-    expect(deps.notificaciones.para(ANA.id)[0]).toMatchObject({ tipo: 'sla_alerta', mensaje: expect.stringContaining('lleva el 81% del tiempo consumido') });
+    expect(deps.notificaciones.para(ANA.id)[0]).toMatchObject({ tipo: 'sla_alerta', push: true, mensaje: expect.stringContaining('lleva el 81% del tiempo consumido') });
     expect(deps.email.enviarAlertaSLA).toHaveBeenCalledWith(expect.objectContaining({ email: 'ana@test' }), expect.anything(), 81.25);
     expect(deps.realtime.eventos.map((e) => e.destino)).toEqual(['tecnico:20', 'admins']);
     expect((await deps.ticketRepository.buscarPorId('TKT-2026-0010')).sla_alerta_enviada).toBe(true);

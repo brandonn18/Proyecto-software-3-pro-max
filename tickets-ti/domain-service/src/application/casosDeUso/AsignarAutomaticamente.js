@@ -25,7 +25,8 @@ class AsignarAutomaticamente {
 
     const asignado = await this.deps.ticketRepository.actualizar(ticket.asignarA(elegido));
     await this.deps.notificaciones.notificar({
-      usuarioId: elegido.id, ticketId: asignado.id, tipo: 'asignacion', mensaje: mensajes.asignacionAutomatica(asignado),
+      usuarioId: elegido.id, ticketId: asignado.id, tipo: 'asignacion',
+      mensaje: mensajes.asignacionAutomatica(asignado), push: false, // ya avisa ticket:nuevo
     });
     this.deps.realtime.emitirATecnico(elegido.id, 'ticket:nuevo', { ticketId: asignado.id, titulo: asignado.titulo });
     return asignado;

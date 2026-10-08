@@ -59,7 +59,7 @@ class CrearTicket {
       detalle: { titulo: ticket.titulo, categoria: ticket.categoria, prioridad: ticket.prioridad },
     });
     await this.deps.notificaciones.notificar({
-      usuarioId: actor.id, ticketId: ticket.id, tipo: 'creacion', mensaje: mensajes.creacion(ticket),
+      usuarioId: actor.id, ticketId: ticket.id, tipo: 'creacion', mensaje: mensajes.creacion(ticket), push: false,
     });
   }
 }

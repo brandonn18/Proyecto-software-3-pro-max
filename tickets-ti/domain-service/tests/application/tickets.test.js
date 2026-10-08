@@ -34,7 +34,7 @@ describe('CrearTicket', () => {
     const { casos, deps } = crearEntorno();
     const ticket = await casos.crear.ejecutar(datosTicket(), actor(LUIS));
     expect(deps.notificaciones.para(10)).toEqual([expect.objectContaining({
-      tipo: 'creacion', mensaje: `Tu ticket ${ticket.id} "Impresora sin conexión" ha sido creado y será asignado a un técnico.`,
+      tipo: 'creacion', push: false, mensaje: `Tu ticket ${ticket.id} "Impresora sin conexión" ha sido creado y será asignado a un técnico.`,
     })]);
   });
 
@@ -101,7 +101,7 @@ describe('CP003 — AsignarAutomaticamente (vía CrearTicket)', () => {
   it('CP006 - debería notificar y emitir ticket:nuevo al técnico elegido', async () => {
     const { casos, deps } = crearEntorno({ usuarios: [ANA, LUIS] });
     const ticket = await casos.crear.ejecutar(datosTicket(), actor(LUIS));
-    expect(deps.notificaciones.para(ANA.id)[0].mensaje).toBe(`Se te ha asignado automáticamente el ticket ${ticket.id}: Impresora sin conexión`);
+    expect(deps.notificaciones.para(ANA.id)[0]).toMatchObject({ push: false, mensaje: `Se te ha asignado automáticamente el ticket ${ticket.id}: Impresora sin conexión` });
     expect(deps.realtime.eventos).toContainEqual({ destino: 'tecnico:20', evento: 'ticket:nuevo', datos: { ticketId: ticket.id, titulo: 'Impresora sin conexión' } });
   });
 
@@ -133,7 +133,7 @@ describe('AsignarTicket (manual)', () => {
     await esperarSegundoPlano();
     expect(ticket).toMatchObject({ estado: 'asignado', tecnicoId: 21, tecnico_nombre: 'Beto Técnico' });
     expect(deps.auditoria.de('TICKET_ASIGNADO')[0].detalle).toEqual({ tecnicoId: 21, tecnicoNombre: 'Beto Técnico' });
-    expect(deps.notificaciones.para(21)[0].mensaje).toBe('Se te ha asignado el ticket TKT-2026-0099: Router caído');
+    expect(deps.notificaciones.para(21)[0]).toMatchObject({ push: true, mensaje: 'Se te ha asignado el ticket TKT-2026-0099: Router caído' });
     expect(deps.email.enviarTicketAsignado).toHaveBeenCalledWith(expect.objectContaining({ id: 21, email: 'beto@test' }), ticket);
   });
 
@@ -195,7 +195,7 @@ describe('CambiarEstadoTicket', () => {
     sembrar(deps, 'en_proceso');
     const t = await casos.cambiarEstado.ejecutar('TKT-2026-0050', { estado: 'resuelto' }, actor(ANA));
     await esperarSegundoPlano();
-    expect(deps.notificaciones.para(LUIS.id)[0]).toMatchObject({ tipo: 'resolucion', mensaje: 'Tu ticket TKT-2026-0050 ha sido resuelto.' });
+    expect(deps.notificaciones.para(LUIS.id)[0]).toMatchObject({ tipo: 'resolucion', push: false, mensaje: 'Tu ticket TKT-2026-0050 ha sido resuelto.' });
     expect(deps.realtime.eventos).toContainEqual({
       destino: 'usuario:10', evento: 'ticket:estado_cambiado', datos: { ticketId: t.id, estadoAnterior: 'en_proceso', nuevoEstado: 'resuelto' },
     });
