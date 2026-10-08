@@ -1,58 +1,110 @@
-version: '3.9'
+# Despliegue local de la arquitectura migrada: authcore y domain-service con
+# bases de datos separadas. En AWS cada servicio puede ir en otra cuenta y se
+# comunican solo por HTTPS (AUTHCORE_URL); aquí comparten la red de compose.
+#
+# Secretos: cada servicio lee su propio .env (no versionado). JWT_SECRET y
+# AUTHCORE_INTERNAL_KEY deben ser idénticos en authcore/.env y domain-service/.env.
 
 services:
-  # ── PostgreSQL ─────────────────────────────────────────────────────────────
-  postgres:
+  # ── PostgreSQL de authcore (dueño único de la tabla users) ─────────────────
+  postgres-authcore:
     image: postgres:15-alpine
-    container_name: tickets_postgres
+    container_name: tickets_postgres_authcore
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-tickets_ti}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${AUTHCORE_DB_NAME:-tickets_authcore}
+      POSTGRES_USER: ${AUTHCORE_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${AUTHCORE_DB_PASSWORD:?Define AUTHCORE_DB_PASSWORD en el entorno o en tickets-ti/.env}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-authcore-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-tickets_ti}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - tickets-network
+      - authcore-net
 
-  # ── Backend (Node.js / Express) ────────────────────────────────────────────
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: tickets_backend
+  # ── PostgreSQL de domain-service (tickets, SLA, notificaciones) ────────────
+  postgres-domain:
+    image: postgres:15-alpine
+    container_name: tickets_postgres_domain
     restart: unless-stopped
-    env_file: ./backend/.env
     environment:
-      DB_HOST: postgres
-      NODE_ENV: production
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: >
-      sh -c "npx sequelize-cli db:migrate && node server.js"
+      POSTGRES_DB: ${DOMAIN_DB_NAME:-tickets_domain}
+      POSTGRES_USER: ${DOMAIN_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DOMAIN_DB_PASSWORD:?Define DOMAIN_DB_PASSWORD en el entorno o en tickets-ti/.env}
+    volumes:
+      - postgres-domain-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
-      - tickets-network
+      - domain-net
+
+  # ── authcore ───────────────────────────────────────────────────────────────
+  authcore:
+    build:
+      context: ./authcore
+    container_name: tickets_authcore
+    restart: unless-stopped
+    env_file: ./authcore/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DB_HOST: postgres-authcore
+      DB_PORT: 5432
+      DB_NAME: ${AUTHCORE_DB_NAME:-tickets_authcore}
+      DB_USER: ${AUTHCORE_DB_USER:-postgres}
+      DB_PASSWORD: ${AUTHCORE_DB_PASSWORD}
+    depends_on:
+      postgres-authcore:
+        condition: service_healthy
+    networks:
+      - authcore-net
+      - edge-net
     expose:
-      - "3001"
+      - "3002"
+
+  # ── domain-service (no ve la red ni la base de authcore) ───────────────────
+  domain-service:
+    build:
+      context: ./domain-service
+    container_name: tickets_domain_service
+    restart: unless-stopped
+    env_file: ./domain-service/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DB_HOST: postgres-domain
+      DB_PORT: 5432
+      DB_NAME: ${DOMAIN_DB_NAME:-tickets_domain}
+      DB_USER: ${DOMAIN_DB_USER:-postgres}
+      DB_PASSWORD: ${DOMAIN_DB_PASSWORD}
+      AUTHCORE_URL: http://authcore:3002
+    depends_on:
+      postgres-domain:
+        condition: service_healthy
+      authcore:
+        condition: service_healthy
+    networks:
+      - domain-net
+      - edge-net
+    expose:
+      - "3003"
 
   # ── Frontend (React + nginx) ───────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     container_name: tickets_frontend
     restart: unless-stopped
-    depends_on:
-      - backend
     networks:
-      - tickets-network
+      - edge-net
     expose:
       - "80"
 
@@ -66,15 +118,24 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - backend
+      - authcore
+      - domain-service
       - frontend
     networks:
-      - tickets-network
+      - edge-net
 
+# Cada base vive en su propia red: domain-service no puede alcanzar
+# postgres-authcore ni a la inversa. Los servicios se hablan por edge-net.
 networks:
-  tickets-network:
+  authcore-net:
+    driver: bridge
+  domain-net:
+    driver: bridge
+  edge-net:
     driver: bridge
 
 volumes:
-  postgres-data:
+  postgres-authcore-data:
+    driver: local
+  postgres-domain-data:
     driver: local

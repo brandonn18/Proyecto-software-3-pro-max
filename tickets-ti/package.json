@@ -4,16 +4,17 @@
   "description": "Sistema de Gestión de Tickets de Soporte TI — Ingeniería de Software II",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run start --prefix frontend\"",
-    "install:all": "npm install --prefix backend && npm install --prefix frontend",
-    "migrate": "npm run migrate --prefix backend",
-    "seed": "npm run seed --prefix backend",
-    "test:all": "npm run test --prefix backend",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "docker:build": "docker-compose build",
-    "docker:reset": "docker-compose down -v && docker-compose up -d"
+    "dev": "concurrently -n authcore,domain,frontend \"npm run dev --prefix authcore\" \"npm run dev --prefix domain-service\" \"npm run start --prefix frontend\"",
+    "install:all": "npm install --prefix authcore && npm install --prefix domain-service && npm install --prefix frontend",
+    "migrate": "npm run migrate --prefix authcore && npm run migrate --prefix domain-service",
+    "seed": "npm run seed --prefix authcore",
+    "test:all": "npm test --prefix authcore && npm test --prefix domain-service",
+    "test:legacy": "npm test --prefix backend",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:build": "docker compose build",
+    "docker:reset": "docker compose down -v && docker compose up -d"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

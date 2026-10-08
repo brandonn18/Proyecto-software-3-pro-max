@@ -4,7 +4,9 @@ let socket = null;
 
 export const initSocket = (token) => {
   if (socket) socket.disconnect();
-  socket = io(process.env.REACT_APP_API_URL || 'http://localhost:3001', {
+  // Sin REACT_APP_API_URL se conecta al mismo origen de la página: nginx (o el
+  // proxy de desarrollo) lo envía a domain-service.
+  socket = io(process.env.REACT_APP_API_URL || undefined, {
     auth: { token },
     transports: ['websocket', 'polling'],
     reconnectionAttempts: 5,
