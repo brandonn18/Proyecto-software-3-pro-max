@@ -224,8 +224,6 @@ Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
 | Plan de pruebas y gestión de riesgos | `tickets-ti/COVERAGE_REPORT.md` |
 | Guía de pruebas manuales (evaluador) | `tickets-ti/MANUAL_TEST_GUIDE.md` |
 | Script de aceptación CP001-CP012 | `tickets-ti/backend/tests/acceptance/acceptanceTests.js` |
-| Cronograma (Gantt) | `PROYECTO SOFT 2 - GESTION DE TICKETS.mpp / .pdf` |
-
 ---
 
 ## Casos de prueba cubiertos

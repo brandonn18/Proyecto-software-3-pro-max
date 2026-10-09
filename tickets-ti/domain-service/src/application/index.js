@@ -1,0 +1,15 @@
+module.exports = {
+  CrearTicket: require('./casosDeUso/CrearTicket'),
+  AsignarAutomaticamente: require('./casosDeUso/AsignarAutomaticamente'),
+  AsignarTicket: require('./casosDeUso/AsignarTicket'),
+  CambiarEstadoTicket: require('./casosDeUso/CambiarEstadoTicket'),
+  ReabrirTicket: require('./casosDeUso/ReabrirTicket'),
+  GestionarTicket: require('./casosDeUso/GestionarTicket'),
+  VerificarSLA: require('./casosDeUso/VerificarSLA'),
+  ConsultarReportes: require('./casosDeUso/ConsultarReportes'),
+  PublicarEstadisticas: require('./casosDeUso/PublicarEstadisticas'),
+  BandejaNotificaciones: require('./casosDeUso/BandejaNotificaciones'),
+  GestionarSLAConfig: require('./casosDeUso/GestionarSLAConfig'),
+  errores: require('./errores'),
+  ports: require('./ports'),
+};

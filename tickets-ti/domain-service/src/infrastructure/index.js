@@ -1,0 +1,15 @@
+module.exports = {
+  ...require('./config/env'),
+  ...require('./persistencia/db'),
+  ...require('./persistencia/modelos'),
+  SequelizeTicketRepository: require('./persistencia/SequelizeTicketRepository'),
+  SequelizeAuditoriaRepository: require('./persistencia/SequelizeAuditoriaRepository'),
+  SequelizeNotificacionRepository: require('./persistencia/SequelizeNotificacionRepository'),
+  SequelizeSLAConfigRepository: require('./persistencia/SequelizeSLAConfigRepository'),
+  SequelizeReportesQuery: require('./persistencia/SequelizeReportesQuery'),
+  NotificacionInAppAdapter: require('./notificaciones/NotificacionInAppAdapter'),
+  ...require('./realtime/SocketIoRealtimeAdapter'),
+  ...require('./email/NodemailerEmailAdapter'),
+  AuthcoreUserAdapter: require('./directorio/AuthcoreUserAdapter'),
+  SystemClock: require('./reloj/SystemClock'),
+};

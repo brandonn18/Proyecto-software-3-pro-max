@@ -18,6 +18,57 @@
 - **Funciones pequeñas**: máximo 30 líneas por función; si crece, divídela
 
 ---
+---
+
+## Migración semestre actual — authcore + domain-service hexagonal
+
+Este proyecto se está migrando de un backend monolítico a dos servicios, para
+cumplir los requisitos de la materia actual.
+
+### Servicios
+- `authcore/`: login, usuarios, emisión y validación de JWT. Servicio independiente.
+- `domain-service/`: tickets, SLA, asignación, notificaciones. Arquitectura hexagonal.
+- domain-service valida el JWT emitido por authcore vía JWT_SECRET compartido
+  (variable de entorno, nunca hardcodeado).
+
+### Datos de usuario
+- authcore es el único dueño de la tabla de usuarios.
+- domain-service NUNCA se conecta a la base de datos de authcore.
+- domain-service obtiene usuarios a través del puerto `UserDirectoryPort`,
+  implementado por `AuthcoreUserAdapter`, que llama a la API de authcore vía HTTP
+  (AUTHCORE_URL en variable de entorno).
+- Al asignar un técnico, el ticket guarda `tecnico_id` y `tecnico_nombre` como
+  snapshot; no se usan includes contra tablas de usuario.
+
+### Hexagonal en domain-service
+- `domain/`: entidades y reglas de negocio puras. Prohibido importar Sequelize,
+  Express o Socket.io aquí.
+- `application/`: casos de uso. Reciben sus dependencias (puertos) por constructor,
+  nunca las instancian directamente.
+- `application/ports/`: interfaces (TicketRepository, NotificationPort,
+  UserDirectoryPort, Clock).
+- `infrastructure/`: adaptadores que implementan los puertos (Sequelize,
+  Socket.io, HTTP hacia authcore).
+- Los controllers solo traducen HTTP → caso de uso. No deben contener reglas de negocio.
+
+### SOLID en domain-service
+- Antes de agregar código nuevo, revisa si viola SRP, OCP, LSP, ISP o DIP.
+- Si refactorizas una violación, menciona en el commit qué principio corriges
+  (ej: `refactor(sla): aplica DIP extrayendo interfaz TicketRepository`).
+
+### Al migrar un módulo existente
+1. No modifiques el módulo original hasta tener tests de caracterización.
+2. Extrae el dominio primero, con tests que no dependan de la base de datos.
+3. Luego los puertos, luego el caso de uso, luego los adaptadores.
+4. Corre toda la suite después de cada paso. Nunca avances con tests en rojo.
+
+### AWS
+- authcore y domain-service pueden desplegarse en cuentas de AWS distintas;
+  se comunican solo por HTTPS, sin compartir VPC ni base de datos.
+- Nunca generes ni uses credenciales de AWS dentro de Claude Code; `aws configure`
+  lo maneja el usuario fuera de esta sesión.
+- Ningún secreto (JWT_SECRET, credenciales de BD) va en el repo; siempre variable
+  de entorno o Secrets Manager.
 
 ## Node.js / Express — reglas fijas
 

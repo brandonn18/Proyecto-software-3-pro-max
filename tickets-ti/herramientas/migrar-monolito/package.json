@@ -1,0 +1,23 @@
+{
+  "name": "tickets-ti-migrar-monolito",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Migración única de datos del monolito (backend/) a authcore y domain-service",
+  "main": "migrar.js",
+  "scripts": {
+    "simular": "node migrar.js",
+    "ejecutar": "node migrar.js --ejecutar",
+    "test": "jest --runInBand --forceExit"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 120000
+  }
+}
