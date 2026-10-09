@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Tickets TI - frontend React en S3 privado con CloudFront. Es el único origen que ve
+  el navegador: enruta /api/auth y /api/users a authcore (otra cuenta) y el resto de
+  /api y /socket.io a domain-service, ambos por HTTPS. Reemplaza al nginx de docker-compose.
+
+Parameters:
+  DominioAuthcore:
+    Type: String
+    Description: Dominio CloudFront de la API de authcore (output DominioApi de su stack), sin https://.
+  DominioDomainService:
+    Type: String
+    Description: Dominio CloudFront de la API de domain-service (output DominioApi de su stack).
+
+Mappings:
+  CloudFront:
+    Politicas:
+      CachingOptimized: 658327ea-f89d-4fab-a63d-7e88639e58f6
+      CachingDisabled: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+      AllViewerExceptHostHeader: b689b0a8-53d0-40ab-baf2-68738e2966ac
+      SecurityHeadersPolicy: 67f7725c-6f97-4210-82d7-5512b31e9d03
+
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+
+  ControlAccesoOrigen:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-s3'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # Rutas de la SPA (/tickets/123) → index.html. Se hace en una función y no con
+  # CustomErrorResponses porque esas reescribirían también los 404 de la API.
+  FuncionSpa:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub '${AWS::StackName}-spa'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Reescribe rutas sin extension a /index.html
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          if (request.uri.indexOf('.') === -1) request.uri = '/index.html';
+          return request;
+        }
+
+  Distribucion:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Tickets TI - frontend y enrutamiento de API
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: s3
+            DomainName: !GetAtt Bucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt ControlAccesoOrigen.Id
+            S3OriginConfig: { OriginAccessIdentity: '' }
+          - Id: authcore
+            DomainName: !Ref DominioAuthcore
+            CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2] }
+          - Id: domain-service
+            DomainName: !Ref DominioDomainService
+            CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2] }
+        DefaultCacheBehavior:
+          TargetOriginId: s3
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: !FindInMap [CloudFront, Politicas, CachingOptimized]
+          ResponseHeadersPolicyId: !FindInMap [CloudFront, Politicas, SecurityHeadersPolicy]
+          FunctionAssociations:
+            - { EventType: viewer-request, FunctionARN: !GetAtt FuncionSpa.FunctionMetadata.FunctionARN }
+        # Mismo reparto que nginx/nginx.conf; el orden importa (gana el primero que coincide)
+        CacheBehaviors:
+          - PathPattern: /api/auth/*
+            TargetOriginId: authcore
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: !FindInMap [CloudFront, Politicas, CachingDisabled]
+            OriginRequestPolicyId: !FindInMap [CloudFront, Politicas, AllViewerExceptHostHeader]
+          - PathPattern: /api/users*
+            TargetOriginId: authcore
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: !FindInMap [CloudFront, Politicas, CachingDisabled]
+            OriginRequestPolicyId: !FindInMap [CloudFront, Politicas, AllViewerExceptHostHeader]
+          - PathPattern: /api/*
+            TargetOriginId: domain-service
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: !FindInMap [CloudFront, Politicas, CachingDisabled]
+            OriginRequestPolicyId: !FindInMap [CloudFront, Politicas, AllViewerExceptHostHeader]
+          - PathPattern: /socket.io/*
+            TargetOriginId: domain-service
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachePolicyId: !FindInMap [CloudFront, Politicas, CachingDisabled]
+            OriginRequestPolicyId: !FindInMap [CloudFront, Politicas, AllViewerExceptHostHeader]
+
+  # Solo esta distribución puede leer el bucket
+  PoliticaBucket:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub '${Bucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribucion}'
+
+Outputs:
+  UrlFrontend:
+    Value: !Sub 'https://${Distribucion.DomainName}'
+  Bucket:
+    Value: !Ref Bucket
+  DistribucionId:
+    Value: !Ref Distribucion
