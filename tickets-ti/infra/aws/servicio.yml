@@ -1,0 +1,481 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Tickets TI - un microservicio (authcore o domain-service) en su propia cuenta de AWS:
+  VPC propia, RDS PostgreSQL privado, ECS Fargate detrás de un ALB interno y CloudFront
+  (HTTPS) como única entrada pública. Ninguna VPC ni base de datos se comparte entre cuentas.
+
+Parameters:
+  Servicio:
+    Type: String
+    AllowedValues: [authcore, domain-service]
+  PuertoContenedor:
+    Type: Number
+    Description: 3002 para authcore, 3003 para domain-service.
+  NombreBaseDatos:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9_]{1,62}$'
+  ImageTag:
+    Type: String
+    Default: inicial
+    Description: Tag de la imagen en ECR. desplegar.ps1 lo calcula en cada despliegue.
+  DesiredCount:
+    Type: Number
+    Default: 0
+    AllowedValues: [0, 1, 2]
+    Description: 0 en la primera creación (ECR aún vacío); 1 después de subir la imagen.
+  FrontendUrl:
+    Type: String
+    Default: ''
+    Description: URL HTTPS del frontend (CORS y Socket.io). Se completa al crear frontend.yml.
+  AuthcoreUrl:
+    Type: String
+    Default: ''
+    Description: Solo domain-service. URL HTTPS de la API de authcore (otra cuenta).
+  TrustProxy:
+    Type: Number
+    Default: 3
+    Description: Saltos de proxy delante del contenedor (CloudFront frontend, CloudFront API, ALB).
+  EmailAdministrador:
+    Type: String
+    Default: admin@empresa.com
+    Description: Solo authcore. Email del primer administrador que crea la tarea de bootstrap.
+  EmailAlertas:
+    Type: String
+    AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    Description: Recibe las alertas del presupuesto mensual.
+  PresupuestoMensualUsd:
+    Type: Number
+    Default: 40
+  ClaseInstanciaBd:
+    Type: String
+    Default: db.t4g.micro
+
+Conditions:
+  EsAuthcore: !Equals [!Ref Servicio, authcore]
+  TieneFrontendUrl: !Not [!Equals [!Ref FrontendUrl, '']]
+  TieneAuthcoreUrl: !Not [!Equals [!Ref AuthcoreUrl, '']]
+
+Mappings:
+  # Políticas administradas de CloudFront (IDs fijos publicados por AWS)
+  CloudFront:
+    Politicas:
+      CachingDisabled: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+      AllViewerExceptHostHeader: b689b0a8-53d0-40ab-baf2-68738e2966ac
+
+Resources:
+  # ── Red: subredes públicas (tareas) y privadas (ALB interno y RDS), sin NAT ──
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: !Sub 'tickets-${Servicio}' }]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AdjuntoGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  SubredPublicaA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub 'tickets-${Servicio}-publica-a' }]
+
+  SubredPublicaB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub 'tickets-${Servicio}-publica-b' }]
+
+  SubredPrivadaA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.10.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub 'tickets-${Servicio}-privada-a' }]
+
+  SubredPrivadaB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.11.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub 'tickets-${Servicio}-privada-b' }]
+
+  TablaRutasPublica:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  RutaInternet:
+    Type: AWS::EC2::Route
+    DependsOn: AdjuntoGateway
+    Properties:
+      RouteTableId: !Ref TablaRutasPublica
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  AsociacionPublicaA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubredPublicaA
+      RouteTableId: !Ref TablaRutasPublica
+
+  AsociacionPublicaB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubredPublicaB
+      RouteTableId: !Ref TablaRutasPublica
+
+  # ── Security groups: CloudFront (VPC origin) → ALB → tareas → RDS ──────────
+  SgAlb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB interno; solo recibe trafico de CloudFront VPC origin dentro de la VPC
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 10.20.0.0/16 }
+
+  SgTareas:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Tareas Fargate; solo reciben trafico del ALB
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: !Ref PuertoContenedor, ToPort: !Ref PuertoContenedor, SourceSecurityGroupId: !Ref SgAlb }
+
+  SgBaseDatos:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS; solo recibe conexiones de las tareas del servicio
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref SgTareas }
+
+  # ── Secretos (nunca en el repo ni en parámetros) ───────────────────────────
+  SecretoBaseDatos:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: !Sub 'Credenciales de RDS de ${Servicio}'
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"tickets_admin"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+
+  # En la cuenta de authcore son la fuente de verdad. En la de domain-service se
+  # crean con un valor aleatorio y desplegar.ps1 les copia el valor de authcore.
+  SecretoJwt:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: JWT_SECRET compartido entre authcore y domain-service
+      GenerateSecretString: { PasswordLength: 64, ExcludePunctuation: true }
+
+  SecretoClaveInterna:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: AUTHCORE_INTERNAL_KEY para las llamadas de domain-service a /internal
+      GenerateSecretString: { PasswordLength: 64, ExcludePunctuation: true }
+
+  SecretoAdmin:
+    Type: AWS::SecretsManager::Secret
+    Condition: EsAuthcore
+    Properties:
+      Description: Contraseña inicial del primer administrador
+      GenerateSecretString:
+        PasswordLength: 20
+        RequireEachIncludedType: true
+        ExcludeCharacters: '"''`$\/@ :;,{}[]|<>%&^~'
+
+  # ── RDS PostgreSQL (privado, solo accesible desde las tareas) ──────────────
+  GrupoSubredesBd:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub 'Subredes privadas de ${Servicio}'
+      SubnetIds: [!Ref SubredPrivadaA, !Ref SubredPrivadaB]
+
+  BaseDatos:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      EngineVersion: '17.11'
+      DBInstanceClass: !Ref ClaseInstanciaBd
+      AllocatedStorage: '20'
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: !Ref NombreBaseDatos
+      MasterUsername: !Sub '{{resolve:secretsmanager:${SecretoBaseDatos}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${SecretoBaseDatos}:SecretString:password}}'
+      DBSubnetGroupName: !Ref GrupoSubredesBd
+      VPCSecurityGroups: [!Ref SgBaseDatos]
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+
+  # ── Imágenes y logs ────────────────────────────────────────────────────────
+  Repositorio:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'tickets-${Servicio}'
+      EmptyOnDelete: true
+      ImageScanningConfiguration: { ScanOnPush: true }
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Conserva las 5 imagenes mas recientes",
+            "selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},
+            "action":{"type":"expire"}}]}
+
+  GrupoLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/tickets-${Servicio}'
+      RetentionInDays: 7
+
+  # ── ECS Fargate ────────────────────────────────────────────────────────────
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub 'tickets-${Servicio}'
+
+  RolEjecucion:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - { Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: leer-secretos-del-servicio
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref SecretoBaseDatos
+                  - !Ref SecretoJwt
+                  - !Ref SecretoClaveInterna
+                  - !If [EsAuthcore, !Ref SecretoAdmin, !Ref 'AWS::NoValue']
+
+  DefinicionTarea:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'tickets-${Servicio}'
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      RuntimePlatform: { OperatingSystemFamily: LINUX, CpuArchitecture: X86_64 }
+      ExecutionRoleArn: !GetAtt RolEjecucion.Arn
+      ContainerDefinitions:
+        - Name: !Ref Servicio
+          Image: !Sub '${Repositorio.RepositoryUri}:${ImageTag}'
+          Essential: true
+          PortMappings: [{ ContainerPort: !Ref PuertoContenedor }]
+          Environment:
+            - { Name: NODE_ENV, Value: production }
+            - { Name: PORT, Value: !Ref PuertoContenedor }
+            - { Name: TRUST_PROXY, Value: !Ref TrustProxy }
+            - { Name: DB_HOST, Value: !GetAtt BaseDatos.Endpoint.Address }
+            - { Name: DB_PORT, Value: !GetAtt BaseDatos.Endpoint.Port }
+            - { Name: DB_NAME, Value: !Ref NombreBaseDatos }
+            - { Name: DB_SSL, Value: 'true' }
+            - { Name: JWT_EXPIRES_IN, Value: 1h }
+            - { Name: AUTHCORE_TIMEOUT_MS, Value: '5000' }
+            - !If [TieneFrontendUrl, { Name: FRONTEND_URL, Value: !Ref FrontendUrl }, !Ref 'AWS::NoValue']
+            - !If [TieneAuthcoreUrl, { Name: AUTHCORE_URL, Value: !Ref AuthcoreUrl }, !Ref 'AWS::NoValue']
+          Secrets:
+            - { Name: DB_USER, ValueFrom: !Sub '${SecretoBaseDatos}:username::' }
+            - { Name: DB_PASSWORD, ValueFrom: !Sub '${SecretoBaseDatos}:password::' }
+            - { Name: JWT_SECRET, ValueFrom: !Ref SecretoJwt }
+            - { Name: AUTHCORE_INTERNAL_KEY, ValueFrom: !Ref SecretoClaveInterna }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref GrupoLogs
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: app
+
+  # Tarea de una sola ejecución: migra y crea el primer administrador
+  DefinicionAdmin:
+    Type: AWS::ECS::TaskDefinition
+    Condition: EsAuthcore
+    Properties:
+      Family: tickets-authcore-admin
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      RuntimePlatform: { OperatingSystemFamily: LINUX, CpuArchitecture: X86_64 }
+      ExecutionRoleArn: !GetAtt RolEjecucion.Arn
+      ContainerDefinitions:
+        - Name: admin
+          Image: !Sub '${Repositorio.RepositoryUri}:${ImageTag}'
+          Essential: true
+          Command: [sh, -c, 'npx sequelize-cli db:migrate && node src/seeders/crearAdmin.js']
+          Environment:
+            - { Name: NODE_ENV, Value: production }
+            - { Name: DB_HOST, Value: !GetAtt BaseDatos.Endpoint.Address }
+            - { Name: DB_PORT, Value: !GetAtt BaseDatos.Endpoint.Port }
+            - { Name: DB_NAME, Value: !Ref NombreBaseDatos }
+            - { Name: DB_SSL, Value: 'true' }
+            - { Name: ADMIN_EMAIL, Value: !Ref EmailAdministrador }
+          Secrets:
+            - { Name: DB_USER, ValueFrom: !Sub '${SecretoBaseDatos}:username::' }
+            - { Name: DB_PASSWORD, ValueFrom: !Sub '${SecretoBaseDatos}:password::' }
+            - { Name: ADMIN_PASSWORD, ValueFrom: !Ref SecretoAdmin }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref GrupoLogs
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: admin
+
+  # ── ALB interno (sin IP pública; solo CloudFront llega a él) ───────────────
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internal
+      Subnets: [!Ref SubredPrivadaA, !Ref SubredPrivadaB]
+      SecurityGroups: [!Ref SgAlb]
+
+  GrupoDestino:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref Vpc
+      TargetType: ip
+      Protocol: HTTP
+      Port: !Ref PuertoContenedor
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      Matcher: { HttpCode: '200' }
+      TargetGroupAttributes:
+        - { Key: deregistration_delay.timeout_seconds, Value: '30' }
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions: [{ Type: forward, TargetGroupArn: !Ref GrupoDestino }]
+
+  ServicioEcs:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref DefinicionTarea
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      # Las migraciones corren al arrancar el contenedor: margen antes del health check
+      HealthCheckGracePeriodSeconds: 180
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker: { Enable: true, Rollback: true }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # IP pública solo de salida (ECR, Secrets Manager, authcore); sin NAT
+          AssignPublicIp: ENABLED
+          Subnets: [!Ref SubredPublicaA, !Ref SubredPublicaB]
+          SecurityGroups: [!Ref SgTareas]
+      LoadBalancers:
+        - { ContainerName: !Ref Servicio, ContainerPort: !Ref PuertoContenedor, TargetGroupArn: !Ref GrupoDestino }
+
+  # ── CloudFront: HTTPS público con certificado *.cloudfront.net ─────────────
+  OrigenVpc:
+    Type: AWS::CloudFront::VpcOrigin
+    DependsOn: Listener
+    Properties:
+      VpcOriginEndpointConfig:
+        Name: !Sub 'tickets-${Servicio}-alb'
+        Arn: !Ref Alb
+        HTTPPort: 80
+        HTTPSPort: 443
+        OriginProtocolPolicy: http-only
+
+  DistribucionApi:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'API de ${Servicio}'
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - Id: alb
+            DomainName: !GetAtt Alb.DNSName
+            VpcOriginConfig: { VpcOriginId: !GetAtt OrigenVpc.Id }
+        DefaultCacheBehavior:
+          TargetOriginId: alb
+          ViewerProtocolPolicy: https-only
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: !FindInMap [CloudFront, Politicas, CachingDisabled]
+          OriginRequestPolicyId: !FindInMap [CloudFront, Politicas, AllViewerExceptHostHeader]
+
+  # ── Control de costos: avisa antes de agotar los créditos ──────────────────
+  Presupuesto:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub 'tickets-${Servicio}-mensual'
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: { Amount: !Ref PresupuestoMensualUsd, Unit: USD }
+        # Sin descontar créditos: mide el gasto real que los créditos están cubriendo
+        CostTypes: { IncludeCredit: false, IncludeRefund: false }
+      NotificationsWithSubscribers:
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref EmailAlertas }]
+        - Notification: { NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref EmailAlertas }]
+
+Outputs:
+  UrlApi:
+    Value: !Sub 'https://${DistribucionApi.DomainName}'
+  DominioApi:
+    Value: !GetAtt DistribucionApi.DomainName
+  RepositorioUri:
+    Value: !GetAtt Repositorio.RepositoryUri
+  Cluster:
+    Value: !Ref Cluster
+  ServicioEcs:
+    Value: !GetAtt ServicioEcs.Name
+  SecretoJwtArn:
+    Value: !Ref SecretoJwt
+  SecretoClaveInternaArn:
+    Value: !Ref SecretoClaveInterna
+  SecretoAdminArn:
+    Condition: EsAuthcore
+    Value: !Ref SecretoAdmin
+  DefinicionAdminArn:
+    Condition: EsAuthcore
+    Value: !Ref DefinicionAdmin
+  SubredesPublicas:
+    Value: !Join [',', [!Ref SubredPublicaA, !Ref SubredPublicaB]]
+  SgTareas:
+    Value: !Ref SgTareas
