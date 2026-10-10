@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { ticketService } from '../services/ticketService';
 import Badge from '../components/shared/Badge';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { userService } from '../services/userService';
 
 const TRANSICIONES = {
   asignado: ['en_proceso'],
@@ -108,7 +108,7 @@ export default function TicketDetail() {
   useEffect(() => {
     cargarTicket();
     if (user?.rol === 'administrador') {
-      api.get('/users/technicians/available').then((r) => setTecnicos(r.data.data || []));
+      userService.listarTecnicos().then(setTecnicos).catch(() => setTecnicos([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);

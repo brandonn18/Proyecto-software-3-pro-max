@@ -19,11 +19,13 @@ describe('Autenticación por JWT de authcore (sin consultar authcore)', () => {
   });
 
   it.each([
-    ['firmado con otro secreto', () => jwt.sign({ id: 1, rol: 'administrador', nombre: 'X' }, 'otro_secreto_de_32_caracteres_minimo!')],
+    ['firmado con otro secreto', () => tokenPara(USUARIOS.admin, { secreto: 'otro_secreto_de_32_caracteres_minimo!' })],
     ['expirado', () => tokenPara(USUARIOS.admin, { expiresIn: -10 })],
     ['malformado', () => 'no.es.jwt'],
-    ['sin rol válido', () => jwt.sign({ id: 1, rol: 'superusuario', nombre: 'X' }, process.env.JWT_SECRET)],
-    ['sin nombre', () => jwt.sign({ id: 1, rol: 'administrador' }, process.env.JWT_SECRET)],
+    ['sin rol válido', () => jwt.sign({ sub: 'x', uid: 1, roles: ['SUPERUSUARIO'] }, process.env.JWT_SECRET)],
+    ['sin sub', () => jwt.sign({ uid: 1, roles: ['ADMIN'] }, process.env.JWT_SECRET)],
+    ['sin uid', () => jwt.sign({ sub: 'admin', roles: ['ADMIN'] }, process.env.JWT_SECRET)],
+    ['con el formato del authcore anterior', () => jwt.sign({ id: 1, rol: 'administrador', nombre: 'X' }, process.env.JWT_SECRET)],
   ])('debería responder 401 con un token %s', async (_caso, generar) => {
     const res = await conToken(generar());
     expect(res.status).toBe(401);

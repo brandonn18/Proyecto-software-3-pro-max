@@ -10,7 +10,17 @@ Parameters:
     AllowedValues: [authcore, domain-service]
   PuertoContenedor:
     Type: Number
-    Description: 3002 para authcore, 3003 para domain-service.
+    Description: 8081 para authcore (Java), 3003 para domain-service.
+  CpuTarea:
+    Type: String
+    Default: '256'
+    AllowedValues: ['256', '512', '1024']
+    Description: 512 para authcore (la JVM arranca muy lento con 0.25 vCPU).
+  MemoriaTarea:
+    Type: String
+    Default: '512'
+    AllowedValues: ['512', '1024', '2048']
+    Description: 1024 para authcore (Spring Boot no cabe holgado en 512 MB).
   NombreBaseDatos:
     Type: String
     AllowedPattern: '^[a-z][a-z0-9_]{1,62}$'
@@ -35,10 +45,14 @@ Parameters:
     Type: Number
     Default: 3
     Description: Saltos de proxy delante del contenedor (CloudFront frontend, CloudFront API, ALB).
+  UsuarioAdministrador:
+    Type: String
+    Default: admin
+    Description: Solo authcore. Username del primer administrador (se crea al arrancar si no existe).
   EmailAdministrador:
     Type: String
-    Default: admin@empresa.com
-    Description: Solo authcore. Email del primer administrador que crea la tarea de bootstrap.
+    Default: ''
+    Description: Solo authcore. Email opcional del primer administrador (notificaciones).
   EmailAlertas:
     Type: String
     AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
@@ -54,6 +68,7 @@ Conditions:
   EsAuthcore: !Equals [!Ref Servicio, authcore]
   TieneFrontendUrl: !Not [!Equals [!Ref FrontendUrl, '']]
   TieneAuthcoreUrl: !Not [!Equals [!Ref AuthcoreUrl, '']]
+  TieneEmailAdmin: !And [!Condition EsAuthcore, !Not [!Equals [!Ref EmailAdministrador, '']]]
 
 Mappings:
   # Políticas administradas de CloudFront (IDs fijos publicados por AWS)
@@ -279,8 +294,8 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub 'tickets-${Servicio}'
-      Cpu: '256'
-      Memory: '512'
+      Cpu: !Ref CpuTarea
+      Memory: !Ref MemoriaTarea
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
       RuntimePlatform: { OperatingSystemFamily: LINUX, CpuArchitecture: X86_64 }
@@ -297,57 +312,28 @@ Resources:
             - { Name: DB_HOST, Value: !GetAtt BaseDatos.Endpoint.Address }
             - { Name: DB_PORT, Value: !GetAtt BaseDatos.Endpoint.Port }
             - { Name: DB_NAME, Value: !Ref NombreBaseDatos }
+            # DB_SSL lo lee domain-service (Node); DB_SSLMODE, authcore (JDBC)
             - { Name: DB_SSL, Value: 'true' }
-            - { Name: JWT_EXPIRES_IN, Value: 1h }
+            - { Name: DB_SSLMODE, Value: require }
+            - { Name: JWT_EXPIRATION_MS, Value: '3600000' }
             - { Name: AUTHCORE_TIMEOUT_MS, Value: '5000' }
             - !If [TieneFrontendUrl, { Name: FRONTEND_URL, Value: !Ref FrontendUrl }, !Ref 'AWS::NoValue']
             - !If [TieneAuthcoreUrl, { Name: AUTHCORE_URL, Value: !Ref AuthcoreUrl }, !Ref 'AWS::NoValue']
+            # authcore crea el primer administrador al arrancar si no existe (idempotente)
+            - !If [EsAuthcore, { Name: ADMIN_USERNAME, Value: !Ref UsuarioAdministrador }, !Ref 'AWS::NoValue']
+            - !If [TieneEmailAdmin, { Name: ADMIN_EMAIL, Value: !Ref EmailAdministrador }, !Ref 'AWS::NoValue']
           Secrets:
             - { Name: DB_USER, ValueFrom: !Sub '${SecretoBaseDatos}:username::' }
             - { Name: DB_PASSWORD, ValueFrom: !Sub '${SecretoBaseDatos}:password::' }
             - { Name: JWT_SECRET, ValueFrom: !Ref SecretoJwt }
             - { Name: AUTHCORE_INTERNAL_KEY, ValueFrom: !Ref SecretoClaveInterna }
+            - !If [EsAuthcore, { Name: ADMIN_PASSWORD, ValueFrom: !Ref SecretoAdmin }, !Ref 'AWS::NoValue']
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref GrupoLogs
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: app
-
-  # Tarea de una sola ejecución: migra y crea el primer administrador
-  DefinicionAdmin:
-    Type: AWS::ECS::TaskDefinition
-    Condition: EsAuthcore
-    Properties:
-      Family: tickets-authcore-admin
-      Cpu: '256'
-      Memory: '512'
-      NetworkMode: awsvpc
-      RequiresCompatibilities: [FARGATE]
-      RuntimePlatform: { OperatingSystemFamily: LINUX, CpuArchitecture: X86_64 }
-      ExecutionRoleArn: !GetAtt RolEjecucion.Arn
-      ContainerDefinitions:
-        - Name: admin
-          Image: !Sub '${Repositorio.RepositoryUri}:${ImageTag}'
-          Essential: true
-          Command: [sh, -c, 'npx sequelize-cli db:migrate && node src/seeders/crearAdmin.js']
-          Environment:
-            - { Name: NODE_ENV, Value: production }
-            - { Name: DB_HOST, Value: !GetAtt BaseDatos.Endpoint.Address }
-            - { Name: DB_PORT, Value: !GetAtt BaseDatos.Endpoint.Port }
-            - { Name: DB_NAME, Value: !Ref NombreBaseDatos }
-            - { Name: DB_SSL, Value: 'true' }
-            - { Name: ADMIN_EMAIL, Value: !Ref EmailAdministrador }
-          Secrets:
-            - { Name: DB_USER, ValueFrom: !Sub '${SecretoBaseDatos}:username::' }
-            - { Name: DB_PASSWORD, ValueFrom: !Sub '${SecretoBaseDatos}:password::' }
-            - { Name: ADMIN_PASSWORD, ValueFrom: !Ref SecretoAdmin }
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref GrupoLogs
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: admin
 
   # ── ALB interno (sin IP pública; solo CloudFront llega a él) ───────────────
   Alb:
@@ -388,7 +374,7 @@ Resources:
       TaskDefinition: !Ref DefinicionTarea
       DesiredCount: !Ref DesiredCount
       LaunchType: FARGATE
-      # Las migraciones corren al arrancar el contenedor: margen antes del health check
+      # Migraciones (domain-service) o Hibernate + JVM (authcore) al arrancar: margen antes del health check
       HealthCheckGracePeriodSeconds: 180
       DeploymentConfiguration:
         MinimumHealthyPercent: 100
@@ -472,9 +458,6 @@ Outputs:
   SecretoAdminArn:
     Condition: EsAuthcore
     Value: !Ref SecretoAdmin
-  DefinicionAdminArn:
-    Condition: EsAuthcore
-    Value: !Ref DefinicionAdmin
   SubredesPublicas:
     Value: !Join [',', [!Ref SubredPublicaA, !Ref SubredPublicaB]]
   SgTareas:

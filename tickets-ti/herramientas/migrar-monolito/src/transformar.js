@@ -1,4 +1,4 @@
-// Transformaciones puras: filas del monolito → filas de authcore y domain-service.
+// Transformaciones puras: filas del monolito → filas de authcore (Java) y domain-service.
 // Sin BD: se prueban de forma aislada.
 
 const nombreDe = (mapaNombres, id, avisos) => {
@@ -8,11 +8,21 @@ const nombreDe = (mapaNombres, id, avisos) => {
   return `Usuario ${id}`;
 };
 
-const usuariosParaAuthcore = (users) => users.map((u) => ({
-  id: u.id, nombre: u.nombre, email: u.email, password: u.password, rol: u.rol, activo: u.activo,
-  intentos_login: u.intentos_login, bloqueado_hasta: u.bloqueado_hasta,
-  createdAt: u.createdAt, updatedAt: u.updatedAt, deletedAt: null,
-}));
+// authcore (Java) acumula roles: register da USER y assignRole agrega los demás
+const ROLES_AUTHCORE = Object.freeze({ administrador: ['ADMIN', 'USER'], tecnico: ['TECNICO', 'USER'], usuario: ['USER'] });
+
+// authcore no tiene cuentas inactivas ni borradas: se omiten para que no recuperen
+// el acceso. El email pasa a ser el username (único en el monolito) y el hash
+// bcrypt de bcryptjs ($2a$) lo valida BCryptPasswordEncoder de Spring.
+const usuariosParaAuthcore = (users, avisos) => {
+  const migrables = users.filter((u) => u.activo && !u.deletedAt);
+  users.filter((u) => !migrables.includes(u))
+    .forEach((u) => avisos.push(`Usuario ${u.id} (${u.email}) inactivo o eliminado: no se migra a authcore`));
+  return {
+    users: migrables.map((u) => ({ id: u.id, username: u.email, email: u.email, password_hash: u.password })),
+    user_roles: migrables.flatMap((u) => ROLES_AUTHCORE[u.rol].map((role) => ({ user_id: u.id, role }))),
+  };
+};
 
 // categoriaId se descarta: la tabla categories no se migra (nada la leía)
 const ticketsParaDomain = (tickets, mapaNombres, avisos) => tickets.map((t) => ({
@@ -25,17 +35,17 @@ const ticketsParaDomain = (tickets, mapaNombres, avisos) => tickets.map((t) => (
   createdAt: t.createdAt, updatedAt: t.updatedAt, deletedAt: t.deletedAt,
 }));
 
-// Auditoría de tickets → domain-service; de cuentas (login, usuarios) → authcore
-const repartirAuditoria = (auditLogs, mapaNombres, avisos) => ({
-  authcore: auditLogs.filter((a) => !a.ticketId).map((a) => ({
-    id: a.id, usuarioId: a.usuarioId, accion: a.accion, detalle: a.detalle, createdAt: a.createdAt,
-  })),
-  domain: auditLogs.filter((a) => a.ticketId).map((a) => ({
+// Solo la auditoría de tickets se migra (→ domain-service). La de cuentas
+// (login, usuarios) se descarta: authcore no tiene tabla de auditoría.
+const repartirAuditoria = (auditLogs, mapaNombres, avisos) => {
+  const deCuentas = auditLogs.filter((a) => !a.ticketId).length;
+  if (deCuentas) avisos.push(`${deCuentas} registros de auditoría de cuentas no se migran (authcore no tiene auditoría)`);
+  return auditLogs.filter((a) => a.ticketId).map((a) => ({
     id: a.id, ticketId: a.ticketId, usuarioId: a.usuarioId,
     usuario_nombre: nombreDe(mapaNombres, a.usuarioId, avisos),
     accion: a.accion, detalle: a.detalle, createdAt: a.createdAt,
-  })),
-});
+  }));
+};
 
 const notificacionesParaDomain = (notifications) => notifications.map((n) => ({
   id: n.id, usuarioId: n.usuarioId, ticketId: n.ticketId, tipo: n.tipo, mensaje: n.mensaje,
@@ -51,12 +61,11 @@ const slaParaDomain = (slaConfigs) => slaConfigs.map((c) => ({
 const transformar = (origen) => {
   const avisos = [];
   const mapaNombres = new Map(origen.users.map((u) => [u.id, u.nombre]));
-  const auditoria = repartirAuditoria(origen.auditLogs, mapaNombres, avisos);
   return {
-    authcore: { users: usuariosParaAuthcore(origen.users), audit_logs: auditoria.authcore },
+    authcore: usuariosParaAuthcore(origen.users, avisos),
     domain: {
       tickets: ticketsParaDomain(origen.tickets, mapaNombres, avisos),
-      audit_logs: auditoria.domain,
+      audit_logs: repartirAuditoria(origen.auditLogs, mapaNombres, avisos),
       notifications: notificacionesParaDomain(origen.notifications),
       sla_configs: slaParaDomain(origen.slaConfigs),
     },

@@ -1,0 +1,20 @@
+# Configuracion de tests: H2 en memoria y secretos de prueba (nunca reales).
+spring:
+  datasource:
+    url: jdbc:h2:mem:authcore_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ''
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+authcore:
+  jwt:
+    secret: secreto-de-pruebas-de-al-menos-32-bytes-para-hs256-xx
+    expiration-ms: 3600000
+  internal-key: clave-interna-de-pruebas-de-al-menos-32-caracteres
+  admin:
+    username: admin
+    password: AdminPruebas123
+    email: admin@pruebas.test

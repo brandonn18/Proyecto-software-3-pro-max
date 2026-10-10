@@ -3,10 +3,10 @@ const { transformar } = require('./transformar');
 
 // Orden de inserción: respeta las FKs dentro de cada base destino
 const TABLAS = {
-  authcore: ['users', 'audit_logs'],
+  authcore: ['users', 'user_roles'],
   domain: ['tickets', 'audit_logs', 'notifications', 'sla_configs'],
 };
-const CON_SECUENCIA = { authcore: ['users', 'audit_logs'], domain: ['audit_logs', 'notifications', 'sla_configs'] };
+const CON_SECUENCIA = { authcore: ['users'], domain: ['audit_logs', 'notifications', 'sla_configs'] };
 
 const leerOrigen = async (origen) => {
   const todo = (sql) => origen.query(sql).then((r) => r.rows);

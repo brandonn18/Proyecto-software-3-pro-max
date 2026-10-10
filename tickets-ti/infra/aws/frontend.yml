@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   Tickets TI - frontend React en S3 privado con CloudFront. Es el único origen que ve
-  el navegador: enruta /api/auth y /api/users a authcore (otra cuenta) y el resto de
+  el navegador: enruta /api/auth a authcore (otra cuenta) y el resto de
   /api y /socket.io a domain-service, ambos por HTTPS. Reemplaza al nginx de docker-compose.
 
 Parameters:
@@ -93,12 +93,6 @@ Resources:
         # Mismo reparto que nginx/nginx.conf; el orden importa (gana el primero que coincide)
         CacheBehaviors:
           - PathPattern: /api/auth/*
-            TargetOriginId: authcore
-            ViewerProtocolPolicy: https-only
-            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
-            CachePolicyId: !FindInMap [CloudFront, Politicas, CachingDisabled]
-            OriginRequestPolicyId: !FindInMap [CloudFront, Politicas, AllViewerExceptHostHeader]
-          - PathPattern: /api/users*
             TargetOriginId: authcore
             ViewerProtocolPolicy: https-only
             AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]

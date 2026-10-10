@@ -36,32 +36,28 @@ describe('LoginForm — validaciones client-side', () => {
     mockNavigate.mockReset();
   });
 
-  test('Muestra error si el email está vacío al intentar hacer login', async () => {
+  test('Muestra error si el usuario está vacío al intentar hacer login', async () => {
     renderLogin();
 
     const boton = screen.getByRole('button', { name: /ingresar/i });
     await userEvent.click(boton);
 
     await waitFor(() => {
-      expect(screen.getByText(/el email es requerido/i)).toBeInTheDocument();
+      expect(screen.getByText(/el usuario es requerido/i)).toBeInTheDocument();
     });
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  test('Muestra error si la contraseña tiene menos de 8 caracteres', async () => {
+  test('Muestra error si la contraseña está vacía', async () => {
     renderLogin();
 
-    const inputEmail = screen.getByPlaceholderText(/tu@empresa\.com/i);
-    const inputPassword = screen.getByLabelText(/contraseña/i);
-
-    await userEvent.type(inputEmail, 'usuario@test.com');
-    await userEvent.type(inputPassword, 'abc');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'luis');
 
     const boton = screen.getByRole('button', { name: /ingresar/i });
     await userEvent.click(boton);
 
     await waitFor(() => {
-      expect(screen.getByText(/al menos 8 caracteres/i)).toBeInTheDocument();
+      expect(screen.getByText(/la contraseña es requerida/i)).toBeInTheDocument();
     });
     expect(mockLogin).not.toHaveBeenCalled();
   });
@@ -71,16 +67,15 @@ describe('LoginForm — validaciones client-side', () => {
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'usuario@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'luis');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Password1!');
 
     await userEvent.click(screen.getByRole('button', { name: /ingresar/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('usuario@test.com', 'Password1!');
+      expect(mockLogin).toHaveBeenCalledWith('luis', 'Password1!');
     });
-    expect(screen.queryByText(/requerido/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/al menos 8 caracteres/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/requerid[oa]/i)).not.toBeInTheDocument();
   });
 });
 
@@ -102,7 +97,7 @@ describe('LoginForm — estado del botón', () => {
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'usuario@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'luis');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Password1!');
 
     const boton = screen.getByRole('button', { name: /ingresar/i });
@@ -113,17 +108,17 @@ describe('LoginForm — estado del botón', () => {
     });
   });
 
-  test('Muestra texto "Ingresando..." en el botón durante la carga', async () => {
+  test('Muestra texto "Procesando..." en el botón durante la carga', async () => {
     mockLogin.mockImplementation(() => new Promise(() => {}));
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'usuario@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'luis');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Password1!');
     await userEvent.click(screen.getByRole('button', { name: /ingresar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/ingresando/i)).toBeInTheDocument();
+      expect(screen.getByText(/procesando/i)).toBeInTheDocument();
     });
   });
 });
@@ -136,44 +131,44 @@ describe('LoginForm — manejo de errores de API', () => {
 
   test('Muestra mensaje de credenciales inválidas si el servidor responde 401', async () => {
     const err = new Error('Unauthorized');
-    err.response = { status: 401, data: { message: 'Credenciales inválidas' } };
+    err.response = { status: 401, data: { error: 'Usuario o contrasena incorrectos' } };
     mockLogin.mockRejectedValue(err);
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'malo@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'malo');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Wrongpass1!');
     await userEvent.click(screen.getByRole('button', { name: /ingresar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/email o contraseña incorrectos/i)).toBeInTheDocument();
+      expect(screen.getByText(/usuario o contraseña incorrectos/i)).toBeInTheDocument();
     });
   });
 
-  test('Muestra mensaje de cuenta bloqueada si el servidor responde 423', async () => {
-    const err = new Error('Locked');
-    err.response = { status: 423, data: { message: 'Cuenta bloqueada' } };
+  test('Muestra el mensaje de error de authcore si no es 401', async () => {
+    const err = new Error('Bad Request');
+    err.response = { status: 400, data: { error: 'username: username es obligatorio' } };
     mockLogin.mockRejectedValue(err);
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'bloqueado@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'luis');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Test1234!');
     await userEvent.click(screen.getByRole('button', { name: /ingresar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/bloqueada temporalmente/i)).toBeInTheDocument();
+      expect(screen.getByText(/username es obligatorio/i)).toBeInTheDocument();
     });
   });
 
   test('El botón vuelve a habilitarse después de un error', async () => {
     const err = new Error('Unauthorized');
-    err.response = { status: 401, data: { message: 'Credenciales inválidas' } };
+    err.response = { status: 401, data: { error: 'Usuario o contrasena incorrectos' } };
     mockLogin.mockRejectedValue(err);
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'x@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'x');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Test1234!');
 
     const boton = screen.getByRole('button', { name: /ingresar/i });
@@ -189,7 +184,7 @@ describe('LoginForm — manejo de errores de API', () => {
 
     renderLogin();
 
-    await userEvent.type(screen.getByPlaceholderText(/tu@empresa\.com/i), 'admin@test.com');
+    await userEvent.type(screen.getByPlaceholderText(/tu usuario/i), 'admin');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'Admin123!');
     await userEvent.click(screen.getByRole('button', { name: /ingresar/i }));
 

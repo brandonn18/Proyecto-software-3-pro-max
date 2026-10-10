@@ -8,20 +8,14 @@ const RUTA_POR_ROL = {
   usuario: '/tickets',
 };
 
+// authcore responde los errores como { error: '...' }
 const _mensajeError = (err) => {
-  const msg = err.response?.data?.message || '';
-  if (err.response?.status === 423 || /bloqueada/i.test(msg)) {
-    return 'Cuenta bloqueada temporalmente. Intenta nuevamente en 15 minutos.';
-  }
-  if (err.response?.status === 403 && /inactiva/i.test(msg)) {
-    return 'Tu cuenta está inactiva. Contacta al administrador.';
-  }
-  if (err.response?.status === 401) return 'Email o contraseña incorrectos.';
-  return msg || 'Error al iniciar sesión. Intenta nuevamente.';
+  if (err.response?.status === 401) return 'Usuario o contraseña incorrectos.';
+  return err.response?.data?.error || 'Error al iniciar sesión. Intenta nuevamente.';
 };
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -32,11 +26,11 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!email.trim()) { setError('El email es requerido'); return; }
-    if (password.length < 8) { setError('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (!username.trim()) { setError('El usuario es requerido'); return; }
+    if (!password) { setError('La contraseña es requerida'); return; }
     setLoading(true);
     try {
-      const data = await login(email, password);
+      const data = await login(username.trim(), password);
       const ruta = RUTA_POR_ROL[data.user?.rol] || '/dashboard';
       navigate(ruta, { replace: true });
     } catch (err) {
@@ -95,26 +89,26 @@ export default function Login() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email */}
+              {/* Usuario */}
               <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                  Correo Electrónico
+                <label htmlFor="username" className="block text-sm font-medium text-slate-700">
+                  Usuario
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
                   <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     required
-                    autoComplete="email"
-                    placeholder="tu@empresa.com"
+                    autoComplete="username"
+                    placeholder="tu usuario"
                     className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
                   />
                 </div>

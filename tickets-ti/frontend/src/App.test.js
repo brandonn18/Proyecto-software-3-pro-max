@@ -1,10 +1,11 @@
+import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 
 jest.mock('./services/authService', () => ({
-  authService: { me: jest.fn().mockRejectedValue(new Error('no token')) },
+  authService: { login: jest.fn() },
 }));
 
 test('renders login when unauthenticated', async () => {

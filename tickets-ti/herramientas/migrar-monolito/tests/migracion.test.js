@@ -1,7 +1,8 @@
 /**
- * Integración real: crea tres bases desde cero con las migraciones de
- * backend (origen), authcore y domain-service (destinos), siembra datos del
- * monolito y migra. Lee la conexión de herramientas/migrar-monolito/.env.test.
+ * Integración real: crea tres bases desde cero con las migraciones de backend
+ * (origen) y domain-service, y arranca el authcore Java para que Hibernate cree
+ * su esquema. Siembra datos del monolito, migra y comprueba el login en authcore.
+ * Lee la conexión de herramientas/migrar-monolito/.env.test. Requiere Java 21.
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../.env.test'), override: true });
 const path = require('path');
@@ -9,6 +10,7 @@ const { execFileSync } = require('child_process');
 const { Client } = require('pg');
 const { conectar, contar, configDesdeEnv } = require('../src/bd');
 const { migrar } = require('../src/migracion');
+const { levantarAuthcore } = require('./authcoreJava');
 
 const RAIZ = path.join(__dirname, '../../..');
 const BASES = { origen: 'tickets_mig_origen_test', authcore: 'tickets_mig_authcore_test', domain: 'tickets_mig_domain_test' };
@@ -57,12 +59,13 @@ const sembrarOrigen = async (c) => {
 };
 
 let c;
+let authcore;
 
 beforeAll(async () => {
   for (const nombre of Object.values(BASES)) await recrearBase(nombre);
   migrarEsquema('backend', BASES.origen);
-  migrarEsquema('authcore', BASES.authcore);
   migrarEsquema('domain-service', BASES.domain);
+  authcore = await levantarAuthcore(conexion(BASES.authcore));
   c = {
     origen: await conectar(conexion(BASES.origen)),
     authcore: await conectar(conexion(BASES.authcore)),
@@ -73,12 +76,21 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await Promise.all(Object.values(c || {}).map((cliente) => cliente.end()));
+  if (authcore) await authcore.detener();
 });
+
+const postJson = (ruta, cuerpo) => fetch(`${authcore.url}${ruta}`, {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo),
+});
+
+// Payload del JWT sin verificar la firma (solo para leer los claims en el test)
+const claimsDe = (token) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
 
 describe('Migración del monolito', () => {
   it('debería simular sin escribir nada', async () => {
     const r = await migrar({ ...c, ejecutar: false });
-    expect(r).toMatchObject({ ejecutado: false, authcore: { users: 4, audit_logs: 1 }, domain: { tickets: 3600, audit_logs: 2, notifications: 2, sla_configs: 4 } });
+    expect(r).toMatchObject({ ejecutado: false, authcore: { users: 3, user_roles: 5 }, domain: { tickets: 3600, audit_logs: 2, notifications: 2, sla_configs: 4 } });
+    expect(r.avisos).toContain('Usuario 3 (tecnico2@empresa.com) inactivo o eliminado: no se migra a authcore');
     expect(await contar(c.authcore, 'users')).toBe(0);
     expect(await contar(c.domain, 'tickets')).toBe(0);
   });
@@ -99,29 +111,29 @@ describe('Migración del monolito', () => {
     expect((await c.domain.query(`SELECT "deletedAt" FROM tickets WHERE id = 'TKT-2026-3600'`)).rows[0].deletedAt).not.toBeNull();
     expect((await c.domain.query(`SELECT tiempo_horas FROM sla_configs WHERE prioridad = 'alta'`)).rows[0].tiempo_horas).toBe(6);
     expect((await c.domain.query(`SELECT usuario_nombre FROM audit_logs WHERE accion = 'TICKET_ASIGNADO'`)).rows[0].usuario_nombre).toBe('Administrador');
-    expect((await c.authcore.query(`SELECT id, activo FROM users WHERE email = 'tecnico2@empresa.com'`)).rows[0]).toEqual({ id: 3, activo: false });
+    expect((await c.authcore.query(`SELECT id FROM users WHERE username = 'tecnico2@empresa.com'`)).rows).toEqual([]);
   });
 
-  it('debería dejar las secuencias listas para nuevos registros', async () => {
-    const nuevo = await c.authcore.query(`INSERT INTO users (nombre, email, password, "createdAt", "updatedAt") VALUES ('N','n@t','x',now(),now()) RETURNING id`);
-    expect(nuevo.rows[0].id).toBe(5);
+  it('debería dejar la secuencia de authcore lista para nuevos registros', async () => {
+    const res = await postJson('/api/auth/register', { username: 'nuevo', password: 'secreta1' });
+    expect(res.status).toBe(201);
+    expect((await res.json()).id).toBe(5);
   });
 
   it('debería negarse a correr de nuevo sobre destinos con datos', async () => {
     await expect(migrar({ ...c, ejecutar: false })).rejects.toThrow(/ya tiene \d+ filas/);
   });
 
-  it('debería permitir login en authcore con la contraseña migrada', async () => {
-    Object.assign(process.env, {
-      DB_NAME: BASES.authcore, NODE_ENV: 'test',
-      JWT_SECRET: 'test_jwt_secret_minimo_32_caracteres_ok!', AUTHCORE_INTERNAL_KEY: 'test_internal_key_minimo_32_caracteres!!',
-    });
-    const request = require(path.join(RAIZ, 'authcore/node_modules/supertest'));
-    const app = require(path.join(RAIZ, 'authcore/src/app'));
-    const res = await request(app).post('/api/auth/login').send({ email: 'usuario1@empresa.com', password: 'Usuario123!' });
+  it('debería permitir login en authcore con la contraseña bcrypt migrada', async () => {
+    const res = await postJson('/api/auth/login', { username: 'usuario1@empresa.com', password: 'Usuario123!' });
     expect(res.status).toBe(200);
-    expect(res.body.data.user).toMatchObject({ id: 4, rol: 'usuario' });
-    await require(path.join(RAIZ, 'authcore/src/models')).sequelize.close();
+    expect(claimsDe((await res.json()).token)).toMatchObject({ sub: 'usuario1@empresa.com', uid: 4, roles: ['USER'] });
+  });
+
+  it('debería exponer al técnico migrado en el directorio interno de authcore', async () => {
+    const res = await fetch(`${authcore.url}/internal/tecnicos`, { headers: { 'X-Internal-Key': authcore.claveInterna } });
+    const tecnicos = await res.json();
+    expect(tecnicos.map((t) => [t.id, t.username])).toEqual([[2, 'tecnico1@empresa.com']]);
   });
 
   it('debería exigir todas las variables de conexión', () => {

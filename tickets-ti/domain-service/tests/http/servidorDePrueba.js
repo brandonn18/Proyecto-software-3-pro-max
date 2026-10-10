@@ -1,11 +1,11 @@
 // App HTTP completa sobre tickets_domain_test. authcore, SMTP y Socket.io son
 // dobles; los tokens se firman con JWT_SECRET igual que lo haría authcore.
-const jwt = require('jsonwebtoken');
 const request = require('supertest');
 const { componer } = require('../../src/composicion');
 const { crearApp } = require('../../src/infrastructure/http/app');
 const { DirectorioEnMemoria, EmailEspia, RealtimeEspia } = require('../application/fakes');
 const { abrirBdDePrueba } = require('../infrastructure/bdDePrueba');
+const { firmarComoAuthcore } = require('../helpers/jwtAuthcore');
 
 const USUARIOS = Object.freeze({
   admin: { id: 1, nombre: 'Admin', email: 'admin@test', rol: 'administrador', activo: true },
@@ -15,8 +15,7 @@ const USUARIOS = Object.freeze({
   maria: { id: 11, nombre: 'María Usuaria', email: 'maria@test', rol: 'usuario', activo: true },
 });
 
-const tokenPara = ({ id, email, rol, nombre }, opciones = { expiresIn: '1h' }) =>
-  jwt.sign({ id, email, rol, nombre }, process.env.JWT_SECRET, opciones);
+const tokenPara = (usuario, opciones) => firmarComoAuthcore(usuario, opciones);
 
 const abrirServidorDePrueba = async () => {
   const bd = await abrirBdDePrueba();

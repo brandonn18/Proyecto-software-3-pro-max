@@ -1,0 +1,30 @@
+server:
+  port: ${PORT:8081}
+
+# Sin valores por defecto para secretos: si falta uno, el servicio no arranca.
+spring:
+  application:
+    name: authcore-service
+  datasource:
+    # PostgreSQL por defecto (Docker Compose y RDS). Para usar MySQL basta con
+    # definir SPRING_DATASOURCE_URL=jdbc:mysql://...
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:tickets_authcore}?sslmode=${DB_SSLMODE:disable}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+
+authcore:
+  jwt:
+    # Compartido con domain-service (minimo 32 bytes). Solo variable de entorno.
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+  # Clave de /internal/** (X-Internal-Key). Mismo valor en domain-service.
+  internal-key: ${AUTHCORE_INTERNAL_KEY}
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:}
+    email: ${ADMIN_EMAIL:}

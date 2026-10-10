@@ -1,8 +1,10 @@
 const { UserDirectoryPort } = require('../../application/ports');
 const { ErrorDirectorioNoDisponible } = require('../../application/errores');
+const { personaDesdeUsuario } = require('../authcore/contratoAuthcore');
 
-// Implementa UserDirectoryPort llamando por HTTP a /internal/* de authcore.
-// domain-service nunca se conecta a la base de datos de usuarios.
+// Implementa UserDirectoryPort llamando por HTTP a /internal/* de authcore
+// (servicio Java) y traduce sus usuarios { id, username, email, roles } a las
+// personas del dominio. domain-service nunca se conecta a la base de usuarios.
 class AuthcoreUserAdapter extends UserDirectoryPort {
   // fetchImpl se inyecta para tests; por defecto, el fetch global de Node 18+
   constructor({ baseUrl, internalKey, timeoutMs = 3000, fetchImpl = globalThis.fetch }) {
@@ -20,7 +22,7 @@ class AuthcoreUserAdapter extends UserDirectoryPort {
     let respuesta;
     try {
       respuesta = await this.fetch(`${this.baseUrl}${ruta}`, {
-        headers: { 'x-internal-key': this.internalKey, accept: 'application/json' },
+        headers: { 'X-Internal-Key': this.internalKey, accept: 'application/json' },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (err) {
@@ -29,20 +31,22 @@ class AuthcoreUserAdapter extends UserDirectoryPort {
     if (respuesta.status === 404) return null;
     if (respuesta.status === 401) throw new Error('authcore rechazó AUTHCORE_INTERNAL_KEY: revisa la configuración');
     if (!respuesta.ok) throw new ErrorDirectorioNoDisponible(new Error(`authcore respondió ${respuesta.status}`));
-    return (await respuesta.json()).data;
+    return respuesta.json();
   }
 
-  obtenerUsuario(id) {
-    if (!Number.isInteger(Number(id))) return Promise.resolve(null);
-    return this._get(`/internal/users/${Number(id)}`);
+  async obtenerUsuario(id) {
+    if (!Number.isInteger(Number(id))) return null;
+    return personaDesdeUsuario(await this._get(`/internal/users/${Number(id)}`));
   }
 
+  // authcore no tiene técnicos inactivos: activos y todos son la misma lista
   async listarTecnicosActivos() {
-    return (await this._get('/internal/tecnicos')) || [];
+    const tecnicos = await this.listarTecnicos();
+    return tecnicos.map(({ id, nombre, email }) => ({ id, nombre, email }));
   }
 
-  async listarTecnicos({ incluirInactivos = false } = {}) {
-    return (await this._get(`/internal/tecnicos?incluirInactivos=${incluirInactivos}`)) || [];
+  async listarTecnicos() {
+    return ((await this._get('/internal/tecnicos')) || []).map(personaDesdeUsuario);
   }
 }
 
