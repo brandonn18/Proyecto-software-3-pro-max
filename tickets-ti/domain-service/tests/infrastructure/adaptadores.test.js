@@ -8,6 +8,7 @@ const {
 const { escapar } = require('../../src/infrastructure/email/plantillas');
 const { ErrorDirectorioNoDisponible } = require('../../src/application/errores');
 const { RealtimeEspia } = require('../application/fakes');
+const { firmarComoAuthcore } = require('../helpers/jwtAuthcore');
 
 const CLAVE = 'clave-interna-de-prueba';
 
@@ -30,10 +31,10 @@ describe('AuthcoreUserAdapter', () => {
     falso = await levantarAuthcoreFalso((req, res) => {
       ultimaPeticion = { url: req.url, clave: req.headers['x-internal-key'] };
       if (req.headers['x-internal-key'] !== CLAVE) return responder(res, 401, { success: false });
-      if (req.url === '/internal/users/10') return responder(res, 200, { success: true, data: { id: 10, nombre: 'Luis', email: 'l@t', rol: 'usuario', activo: true } });
+      if (req.url === '/internal/users/10') return responder(res, 200, { id: 10, username: 'luis', email: 'l@t', roles: ['USER'] });
       if (req.url === '/internal/users/500') return responder(res, 500, { success: false });
       if (req.url === '/internal/users/777') return setTimeout(() => responder(res, 200, { data: {} }), 500);
-      if (req.url.startsWith('/internal/tecnicos')) return responder(res, 200, { success: true, data: [{ id: 20, nombre: 'Ana', email: 'a@t' }] });
+      if (req.url === '/internal/tecnicos') return responder(res, 200, [{ id: 20, username: 'ana', email: null, roles: ['USER', 'TECNICO'] }]);
       return responder(res, 404, { success: false });
     });
   });
@@ -42,8 +43,8 @@ describe('AuthcoreUserAdapter', () => {
 
   const adaptador = (overrides = {}) => new AuthcoreUserAdapter({ baseUrl: `${falso.url}/`, internalKey: CLAVE, timeoutMs: 200, ...overrides });
 
-  it('debería obtener un usuario enviando x-internal-key', async () => {
-    expect(await adaptador().obtenerUsuario(10)).toEqual({ id: 10, nombre: 'Luis', email: 'l@t', rol: 'usuario', activo: true });
+  it('debería obtener un usuario enviando X-Internal-Key y traducirlo al dominio', async () => {
+    expect(await adaptador().obtenerUsuario(10)).toEqual({ id: 10, nombre: 'luis', email: 'l@t', rol: 'usuario', activo: true });
     expect(ultimaPeticion).toEqual({ url: '/internal/users/10', clave: CLAVE });
   });
 
@@ -54,10 +55,11 @@ describe('AuthcoreUserAdapter', () => {
     expect(ultimaPeticion).toBeNull();
   });
 
-  it('debería listar técnicos activos y con inactivos', async () => {
-    expect(await adaptador().listarTecnicosActivos()).toEqual([{ id: 20, nombre: 'Ana', email: 'a@t' }]);
-    await adaptador().listarTecnicos({ incluirInactivos: true });
-    expect(ultimaPeticion.url).toBe('/internal/tecnicos?incluirInactivos=true');
+  it('debería listar técnicos (authcore no tiene inactivos: ambas listas coinciden)', async () => {
+    expect(await adaptador().listarTecnicosActivos()).toEqual([{ id: 20, nombre: 'ana', email: null }]);
+    expect(await adaptador().listarTecnicos({ incluirInactivos: true }))
+      .toEqual([{ id: 20, nombre: 'ana', email: null, rol: 'tecnico', activo: true }]);
+    expect(ultimaPeticion.url).toBe('/internal/tecnicos');
   });
 
   it('debería lanzar ErrorDirectorioNoDisponible con 5xx, timeout o red caída', async () => {
@@ -155,12 +157,13 @@ describe('SocketIoRealtimeAdapter', () => {
   it('debería rechazar conexiones sin token o con token inválido', async () => {
     await expect(conectar()).rejects.toThrow('Token requerido');
     await expect(conectar(jwt.sign({ id: 1 }, 'otro-secreto'))).rejects.toThrow('Token inválido');
+    await expect(conectar(jwt.sign({ id: 1, rol: 'administrador' }, SECRETO))).rejects.toThrow('Token inválido');
   });
 
   it('debería entregar cada evento solo a su sala (user-, tecnico-, admin-room)', async () => {
-    const usuario = await conectar(jwt.sign({ id: 10, rol: 'usuario' }, SECRETO));
-    const tecnico = await conectar(jwt.sign({ id: 20, rol: 'tecnico' }, SECRETO));
-    const admin = await conectar(jwt.sign({ id: 1, rol: 'administrador' }, SECRETO));
+    const usuario = await conectar(firmarComoAuthcore({ id: 10, nombre: 'luis', rol: 'usuario' }));
+    const tecnico = await conectar(firmarComoAuthcore({ id: 20, nombre: 'ana', rol: 'tecnico' }));
+    const admin = await conectar(firmarComoAuthcore({ id: 1, nombre: 'admin', rol: 'administrador' }));
     const intruso = jest.fn();
     usuario.on('ticket:nuevo', intruso);
 
@@ -223,8 +226,8 @@ describe('SystemClock y configuración', () => {
   it('configAuthcore debería exigir AUTHCORE_URL', () => {
     delete process.env.AUTHCORE_URL;
     expect(() => configAuthcore()).toThrow(/AUTHCORE_URL/);
-    process.env.AUTHCORE_URL = 'http://authcore:3002';
-    expect(configAuthcore()).toEqual({ baseUrl: 'http://authcore:3002', internalKey: process.env.AUTHCORE_INTERNAL_KEY, timeoutMs: 3000 });
+    process.env.AUTHCORE_URL = 'http://authcore:8081';
+    expect(configAuthcore()).toEqual({ baseUrl: 'http://authcore:8081', internalKey: process.env.AUTHCORE_INTERNAL_KEY, timeoutMs: 3000 });
     delete process.env.AUTHCORE_URL;
   });
 });

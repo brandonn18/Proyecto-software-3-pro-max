@@ -21,10 +21,22 @@ const origen = () => ({
 });
 
 describe('transformar', () => {
-  it('debería conservar ids, hashes de contraseña y estado de bloqueo de los usuarios', () => {
+  it('debería conservar ids y hashes, con el email como username', () => {
     const { authcore } = transformar(origen());
-    expect(authcore.users.map((u) => u.id)).toEqual([1, 2, 4]);
-    expect(authcore.users[1]).toMatchObject({ password: '$2a$12$hash2', activo: false, intentos_login: 3, bloqueado_hasta: fecha, deletedAt: null });
+    expect(authcore.users).toEqual([
+      { id: 1, username: 'a@t', email: 'a@t', password_hash: '$2a$12$hash' },
+      { id: 4, username: 'p@t', email: 'p@t', password_hash: '$2a$12$hash3' },
+    ]);
+  });
+
+  it('debería traducir el rol a los roles acumulados de authcore', () => {
+    expect(transformar(origen()).authcore.user_roles).toEqual([
+      { user_id: 1, role: 'ADMIN' }, { user_id: 1, role: 'USER' }, { user_id: 4, role: 'USER' },
+    ]);
+  });
+
+  it('debería omitir y avisar los usuarios inactivos (authcore no tiene inactivos)', () => {
+    expect(transformar(origen()).avisos).toContain('Usuario 2 (c@t) inactivo o eliminado: no se migra a authcore');
   });
 
   it('debería agregar los snapshots de nombre y descartar categoriaId', () => {
@@ -40,13 +52,13 @@ describe('transformar', () => {
   it('debería avisar y usar un nombre de reemplazo si el usuario no existe', () => {
     const plan = transformar(origen());
     expect(plan.domain.tickets[1]).toMatchObject({ usuario_nombre: 'Usuario 99', tecnico_nombre: null });
-    expect(plan.avisos).toEqual(['Usuario 99 referenciado pero inexistente en users']);
+    expect(plan.avisos).toContain('Usuario 99 referenciado pero inexistente en users');
   });
 
-  it('debería repartir la auditoría: cuentas → authcore, tickets → domain con nombre del actor', () => {
+  it('debería migrar solo la auditoría de tickets, con nombre del actor, y avisar la de cuentas', () => {
     const plan = transformar(origen());
-    expect(plan.authcore.audit_logs).toEqual([{ id: 1, usuarioId: 4, accion: 'LOGIN_EXITOSO', detalle: { email: 'p@t' }, createdAt: fecha }]);
     expect(plan.domain.audit_logs.map((a) => [a.id, a.usuario_nombre])).toEqual([[2, 'Pedro Usuario'], [3, null]]);
+    expect(plan.avisos).toContain('1 registros de auditoría de cuentas no se migran (authcore no tiene auditoría)');
   });
 
   it('debería copiar notificaciones y configuración SLA tal cual', () => {
@@ -58,6 +70,6 @@ describe('transformar', () => {
   it('no debería avisar dos veces por el mismo usuario inexistente', () => {
     const o = origen();
     o.tickets.push({ ...o.tickets[1], id: 'TKT-2026-0003' });
-    expect(transformar(o).avisos).toHaveLength(1);
+    expect(transformar(o).avisos.filter((a) => a.includes('Usuario 99'))).toHaveLength(1);
   });
 });

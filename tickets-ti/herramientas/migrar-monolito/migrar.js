@@ -3,8 +3,9 @@
  * Migración ÚNICA de datos: monolito (backend/) → authcore + domain-service.
  *
  * Requisitos:
- *   1. Bases destino creadas y con sus migraciones aplicadas (npm run migrate
- *      en authcore y en domain-service), sin datos.
+ *   1. Bases destino creadas, con su esquema y sin datos: domain-service con
+ *      sus migraciones (npm run migrate) y authcore arrancado una vez para que
+ *      Hibernate cree users y user_roles (sin ADMIN_PASSWORD, para que quede vacía).
  *   2. Variables ORIGEN_DB_*, AUTHCORE_DB_* y DOMAIN_DB_* (HOST, PORT, NAME,
  *      USER, PASSWORD, SSL) en el entorno o en herramientas/migrar-monolito/.env.
  *

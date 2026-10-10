@@ -1,7 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { ROLES } = require('../../../domain/catalogos');
-
-const ROLES_VALIDOS = Object.values(ROLES);
+const { actorDesdeClaims } = require('../../authcore/contratoAuthcore');
 
 const _rechazar = (res, message) => res.status(401).json({ success: false, message });
 
@@ -10,9 +8,6 @@ const _extraerToken = (req) => {
   if (!header || !header.startsWith('Bearer ')) return null;
   return header.split(' ')[1];
 };
-
-const _claimsValidos = (c) =>
-  Number.isInteger(c?.id) && ROLES_VALIDOS.includes(c.rol) && typeof c.nombre === 'string';
 
 // Valida el JWT emitido por authcore SOLO por firma y expiración (sin BD ni
 // red). Un usuario desactivado conserva acceso hasta que expire su token:
@@ -23,9 +18,9 @@ const crearVerificarToken = (jwtSecret) => {
     const token = _extraerToken(req);
     if (!token) return _rechazar(res, 'Token no proporcionado');
     try {
-      const claims = jwt.verify(token, jwtSecret);
-      if (!_claimsValidos(claims)) return _rechazar(res, 'Token inválido o expirado');
-      req.actor = { id: claims.id, rol: claims.rol, nombre: claims.nombre, email: claims.email };
+      const actor = actorDesdeClaims(jwt.verify(token, jwtSecret));
+      if (!actor) return _rechazar(res, 'Token inválido o expirado');
+      req.actor = actor;
       return next();
     } catch {
       return _rechazar(res, 'Token inválido o expirado');

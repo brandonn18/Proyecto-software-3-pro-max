@@ -23,6 +23,23 @@ Sistema web completo para la gestión de tickets de soporte técnico. Permite re
 | Testing | Jest 29 + Supertest + React Testing Library |
 | Contenedores | Docker + Docker Compose |
 
+### Arquitectura por servicios (semestre actual)
+
+El monolito (`tickets-ti/backend/`) se está reemplazando por dos servicios:
+
+| Servicio | Tecnología | Responsabilidad |
+|---|---|---|
+| `tickets-ti/authcore/` | Java 21 + Spring Boot 4, hexagonal + PostgreSQL | Usuarios, login y emisión de JWT (`sub`, `uid`, `roles`) |
+| `tickets-ti/domain-service/` | Node.js + Express, hexagonal + PostgreSQL | Tickets, SLA, asignación, notificaciones, Socket.io |
+
+- API de authcore: `POST /api/auth/register`, `POST /api/auth/login` → `{ token }`,
+  `GET /api/auth/users` y `POST /api/auth/users/{id}/roles` (solo `ADMIN`).
+  Roles: `ADMIN`, `TECNICO`, `USER` (domain-service los traduce a administrador / técnico / usuario).
+- domain-service valida el JWT con el mismo `JWT_SECRET` y consulta usuarios por
+  `GET /internal/users/{id}` y `GET /internal/tecnicos` (cabecera `X-Internal-Key`).
+- Tests de authcore: `cd tickets-ti/authcore && ./gradlew test` (H2 en memoria, sin base de datos).
+- Despliegue en dos cuentas de AWS: `tickets-ti/infra/aws/README.md`.
+
 ---
 
 ## Funcionalidades implementadas

@@ -1,5 +1,5 @@
-# Despliegue local de la arquitectura migrada: authcore y domain-service con
-# bases de datos separadas. En AWS cada servicio puede ir en otra cuenta y se
+# Despliegue local de la arquitectura migrada: authcore (Java / Spring Boot) y
+# domain-service (Node) con bases de datos separadas. En AWS cada servicio puede ir en otra cuenta y se
 # comunican solo por HTTPS (AUTHCORE_URL); aquí comparten la red de compose.
 #
 # Secretos: cada servicio lee su propio .env (no versionado). JWT_SECRET y
@@ -46,7 +46,7 @@ services:
     networks:
       - domain-net
 
-  # ── authcore ───────────────────────────────────────────────────────────────
+  # ── authcore (Java 21 / Spring Boot; Hibernate crea sus tablas al arrancar) ─
   authcore:
     build:
       context: ./authcore
@@ -54,14 +54,13 @@ services:
     restart: unless-stopped
     env_file: ./authcore/.env
     environment:
-      NODE_ENV: production
-      PORT: 3002
-      TRUST_PROXY: 1
+      PORT: 8081
       DB_HOST: postgres-authcore
       DB_PORT: 5432
       DB_NAME: ${AUTHCORE_DB_NAME:-tickets_authcore}
       DB_USER: ${AUTHCORE_DB_USER:-postgres}
       DB_PASSWORD: ${AUTHCORE_DB_PASSWORD}
+      DB_SSLMODE: disable
     depends_on:
       postgres-authcore:
         condition: service_healthy
@@ -69,7 +68,7 @@ services:
       - authcore-net
       - edge-net
     expose:
-      - "3002"
+      - "8081"
 
   # ── domain-service (no ve la red ni la base de authcore) ───────────────────
   domain-service:
@@ -87,7 +86,7 @@ services:
       DB_NAME: ${DOMAIN_DB_NAME:-tickets_domain}
       DB_USER: ${DOMAIN_DB_USER:-postgres}
       DB_PASSWORD: ${DOMAIN_DB_PASSWORD}
-      AUTHCORE_URL: http://authcore:3002
+      AUTHCORE_URL: http://authcore:8081
     depends_on:
       postgres-domain:
         condition: service_healthy

@@ -4,7 +4,8 @@
 
 .DESCRIPTION
   Idempotente: la primera vez crea todo (unos 30-40 min); las siguientes publica
-  imágenes nuevas y actualiza los stacks. Requiere AWS CLI v2, Docker Desktop y Node 18,
+  imágenes nuevas y actualiza los stacks. Requiere AWS CLI v2, Docker Desktop y Node 18
+  (authcore es Java, pero se compila dentro de Docker: no hace falta Java local),
   y dos perfiles configurados por el usuario con `aws configure --profile <nombre>`.
 
 .EXAMPLE
@@ -15,7 +16,8 @@ param(
     [string]$PerfilAuthcore = 'authcore',
     [string]$PerfilDominio = 'dominio',
     [string]$Region = 'us-east-1',
-    [string]$EmailAdministrador = 'admin@empresa.com',
+    [string]$UsuarioAdministrador = 'admin',
+    [string]$EmailAdministrador = '',
     [int]$PresupuestoMensualUsd = 40
 )
 
@@ -76,26 +78,16 @@ function Desplegar-Servicio {
     return (Obtener-Salidas $Perfil $Region $Stack)
 }
 
-# Corre migraciones y crea el primer administrador si no existe (idempotente)
-function Crear-Administrador {
-    param([hashtable]$Salidas)
-    $red = "awsvpcConfiguration={subnets=[$($Salidas.SubredesPublicas)],securityGroups=[$($Salidas.SgTareas)],assignPublicIp=ENABLED}"
-    $tarea = Invocar-AwsTexto $PerfilAuthcore $Region @('ecs', 'run-task', '--cluster', $Salidas.Cluster,
-        '--task-definition', $Salidas.DefinicionAdminArn, '--launch-type', 'FARGATE',
-        '--network-configuration', $red, '--query', 'tasks[0].taskArn')
-    Invocar-Aws $PerfilAuthcore $Region @('ecs', 'wait', 'tasks-stopped', '--cluster', $Salidas.Cluster, '--tasks', $tarea) | Out-Null
-    $codigo = Invocar-AwsTexto $PerfilAuthcore $Region @('ecs', 'describe-tasks', '--cluster', $Salidas.Cluster,
-        '--tasks', $tarea, '--query', 'tasks[0].containers[0].exitCode')
-    if ($codigo -ne '0') { throw "La tarea de administrador terminó con código '$codigo'. Revisa CloudWatch Logs: /ecs/tickets-authcore (prefijo admin)." }
-}
-
+# authcore (Java) crea sus tablas con Hibernate y el primer administrador al
+# arrancar (ADMIN_USERNAME / ADMIN_PASSWORD de Secrets Manager): no hay tarea aparte.
 function Desplegar-Authcore {
     param([string]$Tag, [string]$UrlFrontend)
-    $extra = @{ EmailAdministrador = $EmailAdministrador; FrontendUrl = $UrlFrontend }
-    $parametros = Parametros-Servicio 'authcore' 3002 'tickets_authcore' $extra
-    $salidas = Desplegar-Servicio $PerfilAuthcore $Stacks.authcore $parametros $Tag
-    Crear-Administrador $salidas
-    return $salidas
+    $extra = @{
+        UsuarioAdministrador = $UsuarioAdministrador; EmailAdministrador = $EmailAdministrador
+        FrontendUrl = $UrlFrontend; CpuTarea = '512'; MemoriaTarea = '1024'
+    }
+    $parametros = Parametros-Servicio 'authcore' 8081 'tickets_authcore' $extra
+    return (Desplegar-Servicio $PerfilAuthcore $Stacks.authcore $parametros $Tag)
 }
 
 function Desplegar-Dominio {
@@ -166,8 +158,8 @@ function Mostrar-Resumen {
     Write-Host 'Despliegue terminado.' -ForegroundColor Green
     Write-Host "  Aplicación:     $UrlFrontend"
     Write-Host "  API authcore:   $($Authcore.UrlApi)"
-    Write-Host "  Administrador:  $EmailAdministrador"
-    Write-Host '  Contraseña inicial (cámbiala al entrar):'
+    Write-Host "  Administrador:  $UsuarioAdministrador"
+    Write-Host '  Contraseña inicial:'
     Write-Host "    aws secretsmanager get-secret-value --secret-id $($Authcore.SecretoAdminArn) --query SecretString --output text --profile $PerfilAuthcore --region $Region"
 }
 

@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { RealtimePort } = require('../../application/ports');
+const { actorDesdeClaims } = require('../authcore/contratoAuthcore');
 
 // Salas idénticas a las del monolito para no tocar el frontend.
 const SALA = {
@@ -23,8 +24,8 @@ class SocketIoRealtimeAdapter extends RealtimePort {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Token requerido'));
     try {
-      socket.user = jwt.verify(token, this.jwtSecret);
-      return next();
+      socket.user = actorDesdeClaims(jwt.verify(token, this.jwtSecret));
+      return socket.user ? next() : next(new Error('Token inválido'));
     } catch {
       return next(new Error('Token inválido'));
     }
