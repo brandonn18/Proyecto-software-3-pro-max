@@ -1,5 +1,5 @@
 const path = require('path');
 module.exports = {
-  'config': path.resolve('src/infrastructure/persistencia', 'configCli.js'),
-  'migrations-path': path.resolve('src/infrastructure/persistencia', 'migraciones'),
+  'config': path.resolve('src/datos', 'configCli.js'),
+  'migrations-path': path.resolve('src/datos', 'migraciones'),
 };
