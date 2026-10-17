@@ -1,10 +1,9 @@
 // App HTTP completa sobre tickets_domain_test. authcore, SMTP y Socket.io son
 // dobles; los tokens se firman con JWT_SECRET igual que lo haría authcore.
 const request = require('supertest');
-const { componer } = require('../../src/composicion');
-const { crearApp } = require('../../src/infrastructure/http/app');
-const { DirectorioEnMemoria, EmailEspia, RealtimeEspia } = require('../application/fakes');
-const { abrirBdDePrueba } = require('../infrastructure/bdDePrueba');
+const Aplicacion = require('../../src/Aplicacion');
+const { DirectorioEnMemoria, EmailEspia, RealtimeEspia } = require('../dobles');
+const { abrirBdDePrueba } = require('../infraestructura/bdDePrueba');
 const { firmarComoAuthcore } = require('../helpers/jwtAuthcore');
 
 const USUARIOS = Object.freeze({
@@ -20,7 +19,7 @@ const tokenPara = (usuario, opciones) => firmarComoAuthcore(usuario, opciones);
 const abrirServidorDePrueba = async () => {
   const bd = await abrirBdDePrueba();
   const ctx = { bd };
-  // modulos: flags de src/modules/ (p. ej. { comentarios: true }); apagados por defecto
+  // modulos: { comentarios: true } enciende /api/v1/tickets/:id/comentarios
   ctx.reiniciar = async ({ usuarios = Object.values(USUARIOS), modulos = {} } = {}) => {
     await bd.limpiar();
     await bd.modelos.SLAConfig.bulkCreate([
@@ -31,9 +30,8 @@ const abrirServidorDePrueba = async () => {
     ctx.email = new EmailEspia();
     ctx.realtime = new RealtimeEspia();
     ctx.logger = { error: jest.fn(), info: jest.fn() };
-    const compuesto = componer({ ...bd, userDirectory: ctx.directorio, email: ctx.email, realtime: ctx.realtime, logger: ctx.logger, modulos });
-    Object.assign(ctx, { casos: compuesto.casos, deps: compuesto.deps });
-    ctx.app = crearApp({ casos: compuesto.casos, modulos: compuesto.modulos, jwtSecret: process.env.JWT_SECRET, origenPermitido: '*', esTest: true, logger: ctx.logger });
+    ctx.aplicacion = new Aplicacion({ ...bd, directorio: ctx.directorio, correo: ctx.email, canal: ctx.realtime, logger: ctx.logger });
+    ctx.app = ctx.aplicacion.crearHttp({ jwtSecret: process.env.JWT_SECRET, modulos, origenPermitido: '*', esTest: true });
   };
   // como(usuario).get('/api/...') → request autenticado
   ctx.como = (usuario) => {

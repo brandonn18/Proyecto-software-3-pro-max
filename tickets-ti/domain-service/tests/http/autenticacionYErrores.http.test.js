@@ -1,8 +1,10 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { abrirServidorDePrueba, USUARIOS, tokenPara } = require('./servidorDePrueba');
-const { crearErrorHandler } = require('../../src/infrastructure/http/middlewares/errorHandler');
-const { programarTareas, CADA_15_MIN, CADA_5_MIN } = require('../../src/infrastructure/programador');
+const ManejadorDeErrores = require('../../src/infraestructura/http/ManejadorDeErrores');
+const ProgramadorDeTareas = require('../../src/infraestructura/ProgramadorDeTareas');
+
+const { CADA_15_MIN, CADA_5_MIN } = ProgramadorDeTareas;
 
 let s;
 
@@ -64,7 +66,7 @@ describe('errorHandler', () => {
   it('no debería filtrar el mensaje interno en un 500', () => {
     const res = resFalso();
     const logger = { error: jest.fn() };
-    crearErrorHandler(logger)(new Error('detalle interno de la BD'), {}, res, jest.fn());
+    new ManejadorDeErrores(logger).middleware(new Error('detalle interno de la BD'), {}, res, jest.fn());
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Error interno del servidor', errors: [] });
     expect(logger.error).toHaveBeenCalled();
@@ -79,32 +81,30 @@ describe('programarTareas', () => {
 
   it('debería programar SLA cada 15 min y estadísticas cada 5 min', async () => {
     const cron = cronFalso();
-    const casos = { verificarSLA: { ejecutar: jest.fn().mockResolvedValue(2) }, publicarEstadisticas: { ejecutar: jest.fn().mockResolvedValue({}) } };
+    const tareas = { verificarSLA: jest.fn().mockResolvedValue(2), publicarEstadisticas: jest.fn().mockResolvedValue({}) };
     const logger = { error: jest.fn(), info: jest.fn() };
-    programarTareas({ casos, cron, logger });
+    new ProgramadorDeTareas({ tareas, cron, logger }).programar();
     await cron.tareas[CADA_15_MIN]();
     await cron.tareas[CADA_5_MIN]();
-    expect(casos.verificarSLA.ejecutar).toHaveBeenCalled();
-    expect(casos.publicarEstadisticas.ejecutar).toHaveBeenCalled();
+    expect(tareas.verificarSLA).toHaveBeenCalled();
+    expect(tareas.publicarEstadisticas).toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith('[SLA] 2 alerta(s) generadas');
   });
 
   it('debería registrar el error de una tarea sin propagarlo', async () => {
     const cron = cronFalso();
     const logger = { error: jest.fn() };
-    const casos = { verificarSLA: { ejecutar: jest.fn().mockRejectedValue(new Error('BD caída')) }, publicarEstadisticas: { ejecutar: jest.fn() } };
-    programarTareas({ casos, cron, logger });
+    const tareas = { verificarSLA: jest.fn().mockRejectedValue(new Error('BD caída')), publicarEstadisticas: jest.fn() };
+    new ProgramadorDeTareas({ tareas, cron, logger }).programar();
     await expect(cron.tareas[CADA_15_MIN]()).resolves.toBeUndefined();
     expect(logger.error).toHaveBeenCalledWith('[SLA] error:', 'BD caída');
   });
 });
 
-describe('crearApp detrás de un proxy', () => {
-  const { crearApp } = require('../../src/infrastructure/http/app');
-
+describe('Aplicacion#crearHttp detrás de un proxy', () => {
   it('debería confiar en X-Forwarded-For solo si se configura trustProxy', () => {
-    const base = { casos: s.casos, jwtSecret: 'x', esTest: true };
-    expect(crearApp({ ...base, trustProxy: 1 }).get('trust proxy')).toBe(1);
-    expect(crearApp(base).get('trust proxy')).toBe(false);
+    const base = { jwtSecret: 'x', esTest: true };
+    expect(s.aplicacion.crearHttp({ ...base, trustProxy: 1 }).get('trust proxy')).toBe(1);
+    expect(s.aplicacion.crearHttp(base).get('trust proxy')).toBe(false);
   });
 });
