@@ -4,8 +4,8 @@ module.exports = {
   setupFiles: ['<rootDir>/tests/setup.js'],
   collectCoverageFrom: [
     'src/**/*.js',
-    '!src/infrastructure/persistencia/migraciones/**',
-    '!src/infrastructure/persistencia/configCli.js',
+    '!src/config/migraciones/**',
+    '!src/config/configCli.js',
   ],
   coverageThreshold: {
     global: { branches: 70, functions: 80, lines: 80, statements: 80 },
