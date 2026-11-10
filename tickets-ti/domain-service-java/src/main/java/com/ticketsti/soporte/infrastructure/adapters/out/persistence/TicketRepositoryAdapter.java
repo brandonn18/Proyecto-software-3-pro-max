@@ -2,6 +2,7 @@ package com.ticketsti.soporte.infrastructure.adapters.out.persistence;
 
 import com.ticketsti.soporte.application.query.FiltroTicket;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
+import com.ticketsti.soporte.domain.model.EstadoTicket;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import com.ticketsti.soporte.infrastructure.adapters.out.persistence.entity.TicketEntity;
@@ -22,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Transactional
 public class TicketRepositoryAdapter implements TicketRepositoryPort {
+
+    private static final List<String> ESTADOS_VIGENTES = EstadoTicket.vigentes().stream().map(Enum::name).toList();
 
     private final TicketJpaRepository jpa;
 
@@ -55,7 +58,7 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
     public Map<String, Long> contarVigentesPorTecnico(Categoria categoria, Collection<String> usernames) {
         Map<String, Long> carga = new HashMap<>();
         if (usernames.isEmpty()) return carga;
-        for (Object[] fila : jpa.contarVigentes(categoria.nombre(), usernames)) {
+        for (Object[] fila : jpa.contarVigentes(categoria.nombre(), usernames, ESTADOS_VIGENTES)) {
             carga.put((String) fila[0], ((Number) fila[1]).longValue());
         }
         return carga;

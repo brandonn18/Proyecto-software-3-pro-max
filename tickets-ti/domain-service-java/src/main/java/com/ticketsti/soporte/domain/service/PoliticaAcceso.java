@@ -40,4 +40,18 @@ public class PoliticaAcceso {
             throw new AccesoDenegadoException("Sin permiso para reabrir este ticket");
         }
     }
+
+    /**
+     * Alcance de lo que un actor puede listar. Ambos null = sin restricción (administrador). Si vienen los dos,
+     * basta cumplir uno (el técnico ve lo que creó y lo que tiene asignado); si solo viene {@code creadoPor},
+     * ve únicamente lo que creó. Debe coincidir con {@link #puedeVer}.
+     */
+    public record Visibilidad(String creadoPor, String asignadoA) { }
+
+    public Visibilidad visibilidadPara(Actor actor) {
+        if (actor.esAdmin()) {
+            return new Visibilidad(null, null);
+        }
+        return new Visibilidad(actor.username(), actor.esTecnico() ? actor.username() : null);
+    }
 }

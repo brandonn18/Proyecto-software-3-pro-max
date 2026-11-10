@@ -1,6 +1,8 @@
 package com.ticketsti.soporte.domain.model;
 
 import com.ticketsti.soporte.domain.exception.ValorInvalidoException;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -29,6 +31,11 @@ public enum EstadoTicket {
     /** "Abierto" en el sentido de carga de trabajo: todavía no está resuelto ni cerrado. */
     public boolean estaVigente() {
         return this != RESUELTO && this != CERRADO;
+    }
+
+    /** Estados vigentes (ni resuelto ni cerrado), derivados de {@link #estaVigente()}. */
+    public static Set<EstadoTicket> vigentes() {
+        return EnumSet.copyOf(Arrays.stream(values()).filter(EstadoTicket::estaVigente).toList());
     }
 
     public static EstadoTicket de(String texto) {

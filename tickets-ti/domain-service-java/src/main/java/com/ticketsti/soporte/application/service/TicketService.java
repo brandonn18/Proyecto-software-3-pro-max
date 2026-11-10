@@ -117,9 +117,8 @@ public class TicketService implements TicketUseCase {
         Prioridad prioridad = q.prioridad() == null || q.prioridad().isBlank() ? null : Prioridad.de(q.prioridad());
         TipoTicket tipo = q.tipo() == null || q.tipo().isBlank() ? null : TipoTicket.de(q.tipo());
         Categoria categoria = q.categoria() == null || q.categoria().isBlank() ? null : Categoria.de(q.categoria());
-        String creadoPor = actor.esAdmin() ? null : actor.username();
-        String asignadoA = actor.esAdmin() || !actor.esTecnico() ? null : actor.username();
-        return tickets.buscar(new FiltroTicket(estado, prioridad, categoria, tipo, creadoPor, asignadoA));
+        PoliticaAcceso.Visibilidad alcance = acceso.visibilidadPara(actor);
+        return tickets.buscar(new FiltroTicket(estado, prioridad, categoria, tipo, alcance.creadoPor(), alcance.asignadoA()));
     }
 
     private Ticket cargar(String codigo) {

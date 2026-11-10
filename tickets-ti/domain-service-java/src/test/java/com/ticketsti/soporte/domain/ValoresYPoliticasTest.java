@@ -142,4 +142,21 @@ class ValoresYPoliticasTest {
         assertThrows(AccesoDenegadoException.class, () -> acceso.asegurarAdmin(Datos.tecnico("ana"), "hacer algo"));
         assertThrows(AccesoDenegadoException.class, () -> acceso.asegurarAdmin(Datos.usuario("maria"), "hacer algo"));
     }
+
+    // ---------- visibilidad al listar ----------
+    @Test
+    void visibilidadPorRol() {
+        var admin = acceso.visibilidadPara(Actor.de("root", List.of("ROLE_ADMIN")));
+        assertEquals(new PoliticaAcceso.Visibilidad(null, null), admin);
+        var tecnico = acceso.visibilidadPara(Actor.de("ana", List.of("ROLE_TECNICO")));
+        assertEquals(new PoliticaAcceso.Visibilidad("ana", "ana"), tecnico);
+        var usuario = acceso.visibilidadPara(Actor.de("maria", List.of("ROLE_USER")));
+        assertEquals(new PoliticaAcceso.Visibilidad("maria", null), usuario);
+    }
+
+    @Test
+    void estadosVigentesSonLosNoFinales() {
+        assertEquals(java.util.Set.of(EstadoTicket.ABIERTO, EstadoTicket.ASIGNADO, EstadoTicket.EN_PROCESO,
+                EstadoTicket.EN_ESPERA), EstadoTicket.vigentes());
+    }
 }

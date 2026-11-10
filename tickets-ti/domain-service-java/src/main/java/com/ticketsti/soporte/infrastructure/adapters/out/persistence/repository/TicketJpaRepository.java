@@ -16,8 +16,9 @@ public interface TicketJpaRepository extends JpaRepository<TicketEntity, Long>, 
     @Query("select coalesce(max(t.consecutivo), 0) from TicketEntity t where t.anio = :anio")
     long maxConsecutivo(@Param("anio") int anio);
 
-    /** Cada fila es [tecnico, cantidad]. «Vigente» = ni resuelto ni cerrado. */
+    /** Cada fila es [tecnico, cantidad]. «Vigente» según EstadoTicket.estaVigente(); los nombres llegan en {@code vigentes}. */
     @Query("select t.tecnico, count(t) from TicketEntity t where t.categoria = :categoria and t.tecnico in :usuarios "
-            + "and t.estado not in ('RESUELTO', 'CERRADO') group by t.tecnico")
-    List<Object[]> contarVigentes(@Param("categoria") String categoria, @Param("usuarios") Collection<String> usuarios);
+            + "and t.estado in :vigentes group by t.tecnico")
+    List<Object[]> contarVigentes(@Param("categoria") String categoria, @Param("usuarios") Collection<String> usuarios,
+                                  @Param("vigentes") Collection<String> vigentes);
 }
