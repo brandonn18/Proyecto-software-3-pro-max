@@ -9,7 +9,6 @@ ni en capturas. `<IP_EC2>`, `<RUTA_PEM>`, `<ENDPOINT_RDS>`, `<CLAVE>`, `<TU_IP>`
 ## Antes de empezar
 
 - Tener el `.pem` de acceso a la EC2 (`<RUTA_PEM>`). No se versiona.
-- Para el paso 8, el endpoint `GET /api/health` debe estar desplegado en la versión que se compila.
 
 ## 1. Arrancar y dejar habilitado el AuthCore
 

@@ -30,8 +30,8 @@ Históricas (no son fuente de verdad del estado actual):
 - `mvn verify`: compila y ejecuta todas las pruebas (requiere JDK 17 y Maven 3.9+).
 - `mvn -DskipTests package`: genera `target/domain-service-tickets-0.1.0-SNAPSHOT.jar`.
 - Desarrollo: `export JWT_SECRET_BASE64=<CLAVE_COMPARTIDA>` y luego `mvn spring-boot:run`. Escucha en `http://localhost:8082` con H2 en memoria.
-- Producción: `SPRING_PROFILES_ACTIVE=prod` más `DB_URL`, `DB_USER`, `DB_PASSWORD` (y `PORT`, opcional, por defecto 8082).
-- Salud: `GET /api/health` (público, responde `{"status":"UP"}`; en implementación).
+- Producción: `SPRING_PROFILES_ACTIVE=prod` más `DB_URL`, `DB_USER`, `DB_PASSWORD` (y `PORT`, opcional: define `server.port`, por defecto 8082).
+- Salud: `GET /api/health` (público, sin token; responde 200 `{"status":"UP"}`).
 
 ## Arquitectura y reglas de dependencia
 

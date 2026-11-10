@@ -13,9 +13,9 @@ Paquete base: `com.ticketsti.soporte` · Java 17 · Spring Boot 3.5.6 · Maven �
 
 | Parte | Estado |
 |---|---|
-| Dominio + aplicación | Compilado y probado: **65 pruebas puras** pasan |
-| Infraestructura (Spring, JPA, REST, seguridad) | Escrita y revisada, **sin ejecutar** (sin acceso a Maven en el entorno de generación) |
-| Pruebas Spring (contrato JPA, unicidad, REST de punta a punta) | Escritas, **sin ejecutar**: son la primera tarea del grupo con `mvn verify` |
+| Dominio + aplicación | Compilado y probado con pruebas unitarias |
+| Infraestructura (Spring, JPA, REST, seguridad) | Ejecutada y probada: `mvn verify` corre las pruebas Spring (contrato JPA, unicidad, REST de punta a punta con JWT) |
+| Salud y puerto | `GET /api/health` público (`{"status":"UP"}`); `PORT` define `server.port` (por defecto 8082) |
 
 ## Arquitectura (hexagonal)
 
@@ -50,7 +50,7 @@ mvn verify                  # pruebas
 mvn spring-boot:run         # REST en http://localhost:8082 (H2 en memoria)
 ```
 
-Producción: perfil `prod` con `DB_URL`, `DB_USER`, `DB_PASSWORD` como variables de entorno. Despliegue en la EC2: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
+Producción: perfil `prod` con `DB_URL`, `DB_USER`, `DB_PASSWORD` como variables de entorno y, opcional, `PORT`. Despliegue en la EC2: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
 Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde en el repositorio).
 
 ## Reglas de negocio clave
@@ -60,7 +60,7 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
 - Ciclo: `asignado → en_proceso ⇄ en_espera`, `en_proceso → resuelto → cerrado`. `abierto → asignado` solo asignando un técnico.
 - Cambia el estado el técnico asignado o el ADMIN; reabre el dueño o el ADMIN; reasigna solo el ADMIN; ve un ticket su creador, su técnico y el ADMIN.
 - Reabrir: vuelve a `ABIERTO`, sin técnico, con SLA reiniciado (4 h crítica, 8 h alta, 24 h media, 72 h baja).
-- Errores: 400 datos inválidos · 403 sin permiso · 404 no existe · 409 transición no permitida/duplicado/concurrencia · 422 otra regla.
+- Errores: 400 datos inválidos · 403 sin permiso · 404 no existe · 409 transición no permitida/duplicado/concurrencia · 405 método no permitido · 415 tipo de contenido no soportado · 422 otra regla · 500 error interno.
 - Concurrencia: `@Version` en las entidades y restricciones únicas (código, usuario del técnico) como última defensa.
 
 ## Integración con el AuthCore desplegado y diferencias justificadas
@@ -80,9 +80,7 @@ Unidad systemd y ejemplo de variables: `deploy/domain-service.service` y `deploy
 
 ## Pendiente para el grupo
 
-1. Ejecutar `mvn verify` y corregir lo que aparezca en las pruebas Spring.
-2. Adjuntar la evidencia de `TicketsRestTest`.
-3. Implementar como ejercicio la tarea de SLA al 80 % y los reportes.
-4. Hacer que la variable `PORT` configure `server.port`: hoy `application.yml` fija `8082`.
+1. Adjuntar la evidencia de `mvn verify` (incluye `TicketsRestTest`).
+2. Implementar como ejercicio la tarea de SLA al 80 % y los reportes.
 
 No incluye credenciales ni secretos: todo llega por variables de entorno.
