@@ -245,6 +245,14 @@ class TicketsRestTest {
     }
 
     @Test
+    @DisplayName("HU-12: un filtro desconocido responde 400 que lo nombra; los filtros válidos siguen dando 200")
+    void filtroDesconocido() throws Exception {
+        mvc.perform(con(get("/api/tickets?foo=bar"), admin(), null)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje").value(containsString("foo")));
+        mvc.perform(con(get("/api/tickets?estado=abierto"), admin(), null)).andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("Método no permitido responde 405 con el mismo formato de error")
     void metodoNoPermitido() throws Exception {
         mvc.perform(con(delete("/api/tecnicos"), admin(), null))
