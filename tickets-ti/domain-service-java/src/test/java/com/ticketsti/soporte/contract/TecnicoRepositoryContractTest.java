@@ -7,8 +7,16 @@ import com.ticketsti.soporte.domain.model.Tecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Transactional;
 
-/** Toda implementación del puerto (memoria, JPA…) debe pasar estas mismas pruebas. */
+/**
+ * Toda implementación del puerto (memoria, JPA…) debe pasar estas mismas pruebas.
+ *
+ * @Transactional va AQUI y no solo en las subclases JPA: Spring busca la anotacion de clase en la clase que declara
+ * el metodo de prueba (esta), asi que sin ella los @Test heredados no corren en transaccion y los datos no se revierten.
+ * Los dobles en memoria la ignoran.
+ */
+@Transactional
 public abstract class TecnicoRepositoryContractTest {
 
     protected abstract TecnicoRepositoryPort repo();
