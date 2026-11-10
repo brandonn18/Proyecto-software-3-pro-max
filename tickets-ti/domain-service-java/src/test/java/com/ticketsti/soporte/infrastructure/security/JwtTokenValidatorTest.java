@@ -1,6 +1,7 @@
 package com.ticketsti.soporte.infrastructure.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +70,47 @@ class JwtTokenValidatorTest {
     void rechazaTokenSinFirma() {
         String sinFirma = Jwts.builder().subject("admin").compact();
         assertTrue(validador.validar(sinFirma).isEmpty());
+    }
+
+    private String tokenReal(SecretKey firma, Map<String, Object> extra) {
+        Instant ahora = reloj.instant();
+        return Jwts.builder().claims(extra).subject("admin")
+                .issuedAt(Date.from(ahora)).expiration(Date.from(ahora.plus(Duration.ofHours(1))))
+                .signWith(firma, Jwts.SIG.HS256).compact();
+    }
+
+    private JwtTokenValidator validadorPara(SecretKey k) {
+        return new JwtTokenValidator(Encoders.BASE64.encode(k.getEncoded()), reloj);
+    }
+
+    @Test
+    @DisplayName("Token del AuthCore desplegado (HS256, role=ROLE_ADMIN, sin uid): rol ADMIN y uid nulo")
+    void tokenRealDelAuthCore() {
+        SecretKey k = Jwts.SIG.HS256.key().build();
+        Optional<UsuarioAutenticado> usuario = validadorPara(k).validar(tokenReal(k, Map.of("role", "ROLE_ADMIN")));
+
+        assertTrue(usuario.isPresent());
+        assertEquals("admin", usuario.get().username());
+        assertNull(usuario.get().uid());
+        assertEquals(List.of("ADMIN"), usuario.get().roles());
+    }
+
+    @Test
+    void roleYRolesNoSeDuplican() {
+        SecretKey k = Jwts.SIG.HS256.key().build();
+        Optional<UsuarioAutenticado> usuario = validadorPara(k).validar(
+                tokenReal(k, Map.of("role", " role_admin ", "roles", List.of("ADMIN", "USER", " "))));
+
+        assertEquals(List.of("ADMIN", "USER"), usuario.orElseThrow().roles());
+    }
+
+    @Test
+    void roleQueNoEsTextoSeIgnora() {
+        SecretKey k = Jwts.SIG.HS256.key().build();
+        Optional<UsuarioAutenticado> usuario = validadorPara(k).validar(tokenReal(k, Map.of("role", 5)));
+
+        assertTrue(usuario.isPresent());
+        assertTrue(usuario.get().roles().isEmpty());
     }
 
     @Test

@@ -7,14 +7,22 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.time.Clock;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import javax.crypto.SecretKey;
 
 /**
  * Valida LOCALMENTE los tokens de AuthCore con la clave compartida (no llama a AuthCore en cada petición).
- * Acepta HS256/HS384/HS512: el token del grupo viene firmado con HS384, y exige que la clave tenga la longitud
- * mínima del algoritmo. Un token sin firma ("alg":"none") o con otra clave se rechaza.
+ * Acepta HS256/HS384/HS512 y exige que la clave tenga la longitud mínima del algoritmo. Reconoce dos formatos:
+ * <ul>
+ *   <li>Guía del curso (HS384): {@code {"sub":"x","uid":1,"roles":["ADMIN","USER"]}}.</li>
+ *   <li>AuthCore del grupo desplegado (HS256): {@code {"sub":"admin","role":"ROLE_ADMIN"}}, sin {@code uid}.</li>
+ * </ul>
+ * Los roles se leen de {@code roles} (lista) y de {@code role} (texto), se unen sin duplicados y se normalizan:
+ * sin espacios, sin prefijo {@code ROLE_} y en mayúsculas. {@code uid} es opcional. Un token sin firma ("alg":"none") o con otra clave se rechaza.
  * Responsabilidad única: validar y extraer datos. No toca Spring Security (eso es del filtro).
  */
 public class JwtTokenValidator {
@@ -53,10 +61,24 @@ public class JwtTokenValidator {
     }
 
     private List<String> leerRoles(Claims claims) {
-        Object crudo = claims.get("roles");
-        if (crudo instanceof List<?> lista) {
-            return lista.stream().filter(String.class::isInstance).map(String.class::cast).toList();
+        Set<String> roles = new LinkedHashSet<>();
+        if (claims.get("roles") instanceof List<?> lista) {
+            lista.stream().filter(String.class::isInstance).map(String.class::cast).forEach(r -> agregar(roles, r));
         }
-        return List.of();
+        if (claims.get("role") instanceof String unico) {
+            agregar(roles, unico);
+        }
+        return List.copyOf(roles);
+    }
+
+    private static void agregar(Set<String> roles, String crudo) {
+        String rol = crudo.trim();
+        if (rol.regionMatches(true, 0, "ROLE_", 0, 5)) {
+            rol = rol.substring(5);
+        }
+        rol = rol.trim().toUpperCase(Locale.ROOT);
+        if (!rol.isEmpty()) {
+            roles.add(rol);
+        }
     }
 }
