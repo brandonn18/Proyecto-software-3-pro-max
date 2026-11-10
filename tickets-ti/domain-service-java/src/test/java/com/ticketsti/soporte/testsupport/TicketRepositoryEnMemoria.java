@@ -1,6 +1,6 @@
 package com.ticketsti.soporte.testsupport;
 
-import com.ticketsti.soporte.application.port.out.FiltroTicket;
+import com.ticketsti.soporte.application.query.FiltroTicket;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.domain.vo.Categoria;

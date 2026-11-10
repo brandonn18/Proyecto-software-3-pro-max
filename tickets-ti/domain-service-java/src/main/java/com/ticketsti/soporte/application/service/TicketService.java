@@ -2,7 +2,7 @@ package com.ticketsti.soporte.application.service;
 
 import com.ticketsti.soporte.application.port.in.TicketUseCase;
 import com.ticketsti.soporte.application.port.in.command.*;
-import com.ticketsti.soporte.application.port.out.FiltroTicket;
+import com.ticketsti.soporte.application.query.FiltroTicket;
 import com.ticketsti.soporte.application.port.out.TecnicoRepositoryPort;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.application.port.out.TransaccionPort;
