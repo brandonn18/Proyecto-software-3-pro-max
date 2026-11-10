@@ -1,0 +1,14 @@
+[Unit]
+Description=Domain service de Tickets TI (Spring Boot)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/domain-service
+EnvironmentFile=/etc/domain-service.env
+ExecStart=/usr/bin/java -jar /opt/domain-service/domain-service-tickets-0.1.0-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -50,7 +50,7 @@ mvn verify                  # pruebas
 mvn spring-boot:run         # REST en http://localhost:8082 (H2 en memoria)
 ```
 
-Producción: perfil `prod` con `DB_URL`, `DB_USER`, `DB_PASSWORD` como variables de entorno.
+Producción: perfil `prod` con `DB_URL`, `DB_USER`, `DB_PASSWORD` como variables de entorno. Despliegue en la EC2: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
 Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde en el repositorio).
 
 ## Reglas de negocio clave
@@ -63,11 +63,27 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
 - Errores: 400 datos inválidos · 403 sin permiso · 404 no existe · 409 transición no permitida/duplicado/concurrencia · 422 otra regla.
 - Concurrencia: `@Version` en las entidades y restricciones únicas (código, usuario del técnico) como última defensa.
 
+## Integración con el AuthCore desplegado y diferencias justificadas
+
+El servicio valida los JWT del AuthCore **desplegado** (repositorio del Taller 2, EC2 con Java 21, puerto 8080), no el
+AuthCore Java del grupo (`tickets-ti/authcore/`). La validación es local, con la clave compartida; nunca se llama al AuthCore.
+La tabla resume dónde se separa lo desplegado de la guía del curso:
+
+| Lo que pide el curso | Lo desplegado | Justificación |
+|---|---|---|
+| JWT firmado con HS384 | HS256 | El validador acepta HS256, HS384 y HS512: el algoritmo lo indica la cabecera del token y la clave debe tener la longitud mínima que exige. |
+| Claims `roles[]` y `uid` | Claim `role` (texto, p. ej. `ROLE_ADMIN`), sin `uid` | Se normaliza el prefijo `ROLE_`. `uid` no se usa en ninguna regla, así que su ausencia no afecta a la autorización. **Pendiente:** el validador actual solo lee `roles[]`; debe leer también `role` antes de desplegar. |
+| HU-1 y HU-3: alta de usuarios y asignación de roles por endpoint | Sin esos endpoints | El AuthCore desplegado (Taller 2) solo expone `POST /api/auth/login`. Los usuarios y roles se crean por SQL en la tabla `users`. El AuthCore del grupo sí implementa esos endpoints, pero no es el desplegado; además valida contraseña mínima de 6 caracteres y no exige email único. |
+
+Despliegue en la misma EC2 del AuthCore, paso a paso: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
+Unidad systemd y ejemplo de variables: `deploy/domain-service.service` y `deploy/domain-service.env.example`.
+
 ## Pendiente para el grupo
 
 1. Ejecutar `mvn verify` y corregir lo que aparezca en las pruebas Spring.
 2. Adjuntar la evidencia de `TicketsRestTest`.
 3. Implementar como ejercicio la tarea de SLA al 80 % y los reportes.
-4. Confirmar con el profesor las decisiones del Excel (reabrir sin técnico, técnicos en el dominio).
+4. Adaptar `JwtTokenValidator` para leer el claim `role` del AuthCore desplegado (ver la tabla de arriba).
+5. Hacer que la variable `PORT` configure `server.port`: hoy `application.yml` fija `8082`.
 
 No incluye credenciales ni secretos: todo llega por variables de entorno.
