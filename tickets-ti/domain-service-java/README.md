@@ -1,6 +1,6 @@
 # Domain Service — Tickets TI (Ingeniería del Software III, Universidad de Pamplona)
 
-Servicio de dominio que se apoya en **AuthCore** (JWT HS384) para autenticar. Gestiona tickets de soporte:
+Servicio de dominio que se apoya en **AuthCore** para autenticar: valida localmente el JWT de AuthCore (HS256 en el desplegado; también acepta HS384 y HS512). Gestiona tickets de soporte:
 creación con asignación automática al técnico con menos carga, ciclo de estados, reapertura, reasignación,
 SLA por prioridad y consulta según el rol.
 
@@ -49,6 +49,8 @@ export JWT_SECRET_BASE64=<el mismo secreto Base64 que usa AuthCore>   # nunca en
 mvn verify                  # pruebas
 mvn spring-boot:run         # REST en http://localhost:8082 (H2 en memoria)
 ```
+
+> Nota (Windows): si `git clone` falla con "Filename too long", ejecuta `git config --system core.longpaths true` o clona con `git clone -c core.longpaths=true`.
 
 Producción: perfil `prod` con `DB_URL`, `DB_USER`, `DB_PASSWORD` como variables de entorno y, opcional, `PORT`. Despliegue en la EC2: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
 Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde en el repositorio).

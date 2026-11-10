@@ -88,7 +88,7 @@ sed -n 's/^ *secret: *//p' /opt/login/application-prod.yml | wc -l
 Después escribe la variable en el archivo:
 
 ```bash
-sed -n 's/^ *secret: *//p' /opt/login/application-prod.yml | tr -d '"' | \
+sed -n 's/^ *secret: *//p' /opt/login/application-prod.yml | tr -d "\"' \r" | \
   sed 's/^/JWT_SECRET_BASE64=/' | sudo tee -a /etc/domain-service.env > /dev/null
 ```
 
