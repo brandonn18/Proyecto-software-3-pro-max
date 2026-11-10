@@ -9,7 +9,6 @@ ni en capturas. `<IP_EC2>`, `<RUTA_PEM>`, `<ENDPOINT_RDS>`, `<CLAVE>`, `<TU_IP>`
 ## Antes de empezar
 
 - Tener el `.pem` de acceso a la EC2 (`<RUTA_PEM>`). No se versiona.
-- Haber cerrado el pendiente del validador JWT: debe leer el claim `role` del AuthCore desplegado (ver `CLAUDE.md`, sección de integración).
 - Para el paso 8, el endpoint `GET /api/health` debe estar desplegado en la versión que se compila.
 
 ## 1. Arrancar y dejar habilitado el AuthCore
@@ -238,7 +237,7 @@ Si ya hay otros técnicos de `hardware` con menos carga, el ticket puede quedar 
 | 401 con un token recién emitido | `JWT_SECRET_BASE64` distinto del `jwt.secret` del AuthCore | Repite el paso 4 y reinicia el servicio. No imprimas la clave para compararla. |
 | 401 con token recién emitido, firma correcta | Reloj desfasado (la tolerancia es de 30 s) | Compara `date` de la EC2 con la hora real; sincroniza con NTP (`timedatectl status`). |
 | 401 en `/api/auth/login` | Usuario o clave incorrectos (no es un problema del domain service) | Confirma que el INSERT del paso 7 existe en la base del AuthCore y que la clave es la usada al generar el hash. |
-| 403 a todos, incluido ADMIN | El validador no ve los roles (el AuthCore emite `role` como texto) o el rol en BD no es `ROLE_ADMIN` | Ver el pendiente del validador en `CLAUDE.md`. Revisa el valor de `role` en la tabla `users`. |
+| 403 a todos, incluido ADMIN | El rol en BD no es `ROLE_ADMIN`, o la clave compartida no coincide | Revisa el valor de `role` en la tabla `users` y que `JWT_SECRET_BASE64` sea idéntica al secreto del AuthCore. |
 | 403 solo al actualizar un ticket | El técnico no es el asignado | Revisa `tecnico` en la respuesta de creación. |
 | `Connection refused` (ECONNREFUSED) | El servicio está detenido o no arrancó | `systemctl status domain-service`; `journalctl -u domain-service`. Si el log dice `Falta JWT_SECRET_BASE64`, revisa `/etc/domain-service.env`. |
 | Timeout desde tu equipo | El Security Group no permite tu IP o tu IP cambió | Paso 6: el origen debe ser tu IP actual con `/32`. |

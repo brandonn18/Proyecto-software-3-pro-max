@@ -72,7 +72,7 @@ La tabla resume dónde se separa lo desplegado de la guía del curso:
 | Lo que pide el curso | Lo desplegado | Justificación |
 |---|---|---|
 | JWT firmado con HS384 | HS256 | El validador acepta HS256, HS384 y HS512: el algoritmo lo indica la cabecera del token y la clave debe tener la longitud mínima que exige. |
-| Claims `roles[]` y `uid` | Claim `role` (texto, p. ej. `ROLE_ADMIN`), sin `uid` | Se normaliza el prefijo `ROLE_`. `uid` no se usa en ninguna regla, así que su ausencia no afecta a la autorización. **Pendiente:** el validador actual solo lee `roles[]`; debe leer también `role` antes de desplegar. |
+| Claims `roles[]` y `uid` | Claim `role` (texto, p. ej. `ROLE_ADMIN`), sin `uid` | Se normaliza el prefijo `ROLE_`. `uid` no se usa en ninguna regla, así que su ausencia no afecta a la autorización. El validador lee `roles[]` y `role`, sin duplicados. |
 | HU-1 y HU-3: alta de usuarios y asignación de roles por endpoint | Sin esos endpoints | El AuthCore desplegado (Taller 2) solo expone `POST /api/auth/login`. Los usuarios y roles se crean por SQL en la tabla `users`. El AuthCore del grupo sí implementa esos endpoints, pero no es el desplegado; además valida contraseña mínima de 6 caracteres y no exige email único. |
 
 Despliegue en la misma EC2 del AuthCore, paso a paso: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
@@ -83,7 +83,6 @@ Unidad systemd y ejemplo de variables: `deploy/domain-service.service` y `deploy
 1. Ejecutar `mvn verify` y corregir lo que aparezca en las pruebas Spring.
 2. Adjuntar la evidencia de `TicketsRestTest`.
 3. Implementar como ejercicio la tarea de SLA al 80 % y los reportes.
-4. Adaptar `JwtTokenValidator` para leer el claim `role` del AuthCore desplegado (ver la tabla de arriba).
-5. Hacer que la variable `PORT` configure `server.port`: hoy `application.yml` fija `8082`.
+4. Hacer que la variable `PORT` configure `server.port`: hoy `application.yml` fija `8082`.
 
 No incluye credenciales ni secretos: todo llega por variables de entorno.

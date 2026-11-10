@@ -66,7 +66,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 - JWT del AuthCore desplegado: HS256, clave = secreto Base64 decodificado, claims `sub`, `role` (texto), `iat`, `exp`. Sin `uid` ni `roles[]`.
 - El domain service valida el JWT localmente con la clave compartida; nunca llama al AuthCore. Tolerancia de reloj: 30 s.
 - La clave llega solo por `JWT_SECRET_BASE64`, idéntica al `jwt.secret` del AuthCore. Si falta, el servicio no arranca.
-- **Pendiente:** el validador actual (`infrastructure/security/JwtTokenValidator.java`) lee solo el claim `roles` (array). Debe leer también `role` (texto) y normalizar el prefijo `ROLE_` antes de desplegar. Hasta entonces, los tokens del AuthCore desplegado no dan roles.
+- El validador (`infrastructure/security/JwtTokenValidator.java`) lee `roles` (lista, formato de la guía) y `role` (texto, AuthCore desplegado), los une sin duplicados y normaliza el prefijo `ROLE_` y las mayúsculas. `uid` es opcional.
 - El `username` de `POST /api/tecnicos` debe ser idéntico al del AuthCore, y ese usuario debe tener rol `ROLE_TECNICO`.
 
 ## Reglas de trabajo
