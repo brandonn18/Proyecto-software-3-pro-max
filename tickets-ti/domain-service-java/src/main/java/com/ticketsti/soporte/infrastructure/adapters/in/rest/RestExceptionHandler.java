@@ -10,7 +10,11 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -46,11 +50,32 @@ public class RestExceptionHandler {
         return responder(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
     }
 
-    @ExceptionHandler({OptimisticLockingFailureException.class, PessimisticLockingFailureException.class,
-            DataIntegrityViolationException.class})
+    @ExceptionHandler({OptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
     ResponseEntity<ErrorResponse> concurrencia(Exception e) {
         LOG.warn("Conflicto de concurrencia: {}", e.toString());
         return responder(HttpStatus.CONFLICT, "Otra operación modificó los mismos datos al mismo tiempo; intente de nuevo");
+    }
+
+    /** Violación de una restricción de la base: conflicto, pero sin hablar de concurrencia ni mostrar detalles SQL. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ErrorResponse> integridad(DataIntegrityViolationException e) {
+        LOG.warn("Violación de integridad de datos: {}", e.toString());
+        return responder(HttpStatus.CONFLICT, "La operación entra en conflicto con datos existentes");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<ErrorResponse> metodoNoPermitido(HttpRequestMethodNotSupportedException e) {
+        return responder(HttpStatus.METHOD_NOT_ALLOWED, "Método HTTP no permitido para esta ruta");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<ErrorResponse> tipoNoSoportado(HttpMediaTypeNotSupportedException e) {
+        return responder(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de contenido no soportado; use application/json");
+    }
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    ResponseEntity<ErrorResponse> rutaInexistente(Exception e) {
+        return responder(HttpStatus.NOT_FOUND, "Recurso no encontrado");
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,

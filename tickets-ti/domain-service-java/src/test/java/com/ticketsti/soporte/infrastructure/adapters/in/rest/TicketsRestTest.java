@@ -243,4 +243,30 @@ class TicketsRestTest {
         mvc.perform(con(get("/api/tickets/" + c1), token("otro", "TECNICO"), null)).andExpect(status().isForbidden());
         mvc.perform(con(get("/api/tickets/TKT-2026-9999"), admin(), null)).andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("Método no permitido responde 405 con el mismo formato de error")
+    void metodoNoPermitido() throws Exception {
+        mvc.perform(con(delete("/api/tecnicos"), admin(), null))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.status").value(405))
+                .andExpect(jsonPath("$.mensaje").exists());
+    }
+
+    @Test
+    @DisplayName("Tipo de contenido no soportado responde 415")
+    void tipoNoSoportado() throws Exception {
+        mvc.perform(post("/api/tickets").header("Authorization", "Bearer " + token("u415", "USER"))
+                        .contentType(MediaType.TEXT_PLAIN).content("hola"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.status").value(415));
+    }
+
+    @Test
+    @DisplayName("Recurso inexistente dentro de una ruta autenticada responde 404, no 500")
+    void rutaInexistente() throws Exception {
+        mvc.perform(con(get("/api/tickets/TKT-2026-0001/inexistente"), admin(), null))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
 }
