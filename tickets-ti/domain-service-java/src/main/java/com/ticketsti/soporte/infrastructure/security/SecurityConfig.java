@@ -29,6 +29,8 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
+                // Única ruta pública: la sonda de salud (solo GET).
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/health").permitAll()
                 // Los técnicos solo los gestiona el ADMIN. Los tickets los usa cualquier usuario autenticado:
                 // quién puede ver o modificar cada ticket lo decide el dominio (PoliticaAcceso), no la URL.
                 .requestMatchers("/api/tecnicos/**").hasRole("ADMIN")

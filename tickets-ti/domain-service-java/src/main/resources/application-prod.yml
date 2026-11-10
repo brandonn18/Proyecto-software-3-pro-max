@@ -1,4 +1,4 @@
-# Perfil "prod": MySQL. Se activa con SPRING_PROFILES_ACTIVE=prod (o "cli,prod" para el CLI sobre MySQL).
+# Perfil "prod": MySQL. Se activa con SPRING_PROFILES_ACTIVE=prod.
 spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/tickets}
