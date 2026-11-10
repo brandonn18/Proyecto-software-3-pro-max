@@ -1,0 +1,701 @@
+{
+  "info": {
+    "name": "Tickets TI - domain-service y AuthCore",
+    "description": "Flujo de punta a punta contra el AuthCore desplegado (puerto 8080) y el domain-service (puerto 8082). Antes de ejecutar, llena las claves en las variables de la colección (clave_admin, clave_tecnico, clave_usuario). Los tokens se guardan solos al hacer login. No subas esas claves al repositorio.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "auth_host",
+      "value": "http://<IP_EC2>:8080"
+    },
+    {
+      "key": "dom_host",
+      "value": "http://<IP_EC2>:8082"
+    },
+    {
+      "key": "clave_admin",
+      "value": ""
+    },
+    {
+      "key": "clave_tecnico",
+      "value": ""
+    },
+    {
+      "key": "clave_usuario",
+      "value": ""
+    },
+    {
+      "key": "token_admin",
+      "value": ""
+    },
+    {
+      "key": "token_tecnico",
+      "value": ""
+    },
+    {
+      "key": "token_usuario",
+      "value": ""
+    },
+    {
+      "key": "codigo",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login AuthCore",
+      "item": [
+        {
+          "name": "Login admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('login admin 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\":\"admin\",\"password\":\"{{clave_admin}}\"}"
+            },
+            "url": "{{auth_host}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login tecnico1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('login tecnico1 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_tecnico', pm.response.json().token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\":\"tecnico1\",\"password\":\"{{clave_tecnico}}\"}"
+            },
+            "url": "{{auth_host}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login usuario1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('login usuario1 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_usuario', pm.response.json().token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\":\"usuario1\",\"password\":\"{{clave_usuario}}\"}"
+            },
+            "url": "{{auth_host}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Salud",
+      "item": [
+        {
+          "name": "Health (público, 200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('health 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{dom_host}}/api/health"
+          }
+        },
+        {
+          "name": "Sin token en /api/tickets (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401 sin token', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{dom_host}}/api/tickets"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. ADMIN",
+      "item": [
+        {
+          "name": "Registrar tecnico1 (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\":\"tecnico1\",\"categorias\":[\"hardware\"]}"
+            },
+            "url": "{{dom_host}}/api/tecnicos"
+          }
+        },
+        {
+          "name": "Listar tecnicos (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/tecnicos"
+          }
+        },
+        {
+          "name": "Metodo no permitido DELETE (405)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('405', () => pm.response.to.have.status(405));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/tecnicos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. USUARIO",
+      "item": [
+        {
+          "name": "Crear ticket (201, ASIGNADO)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 y ASIGNADO', () => { pm.response.to.have.status(201); const b = pm.response.json(); pm.expect(b.estado).to.eql('ASIGNADO'); pm.collectionVariables.set('codigo', b.codigo); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"titulo\":\"Impresora sin respuesta\",\"descripcion\":\"La del segundo piso no imprime\",\"tipo\":\"incidente\",\"categoria\":\"hardware\",\"prioridad\":\"alta\"}"
+            },
+            "url": "{{dom_host}}/api/tickets"
+          }
+        },
+        {
+          "name": "Registrar tecnico como USER (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\":\"x\",\"categorias\":[\"hardware\"]}"
+            },
+            "url": "{{dom_host}}/api/tecnicos"
+          }
+        },
+        {
+          "name": "Filtro desconocido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/tickets?foo=bar"
+          }
+        },
+        {
+          "name": "Ver mis tickets con filtro (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/tickets?estado=asignado&prioridad=alta",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "asignado"
+                },
+                {
+                  "key": "prioridad",
+                  "value": "alta"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. TECNICO",
+      "item": [
+        {
+          "name": "Pasar a en_proceso (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tecnico}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\":\"en_proceso\",\"comentario\":\"Empiezo\"}"
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}/status"
+          }
+        },
+        {
+          "name": "Salto invalido a cerrado (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tecnico}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\":\"cerrado\"}"
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}/status"
+          }
+        },
+        {
+          "name": "Cambiar estado como USER (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\":\"resuelto\"}"
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}/status"
+          }
+        },
+        {
+          "name": "Pasar a resuelto (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tecnico}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\":\"resuelto\"}"
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Reabrir y reasignar",
+      "item": [
+        {
+          "name": "Reabrir con motivo (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 y ABIERTO sin tecnico', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().estado).to.eql('ABIERTO'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"motivo\":\"El problema volvio\"}"
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}/reopen"
+          }
+        },
+        {
+          "name": "Reasignar ticket a tecnico1 (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 y ASIGNADO', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().estado).to.eql('ASIGNADO'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"tecnico\":\"tecnico1\"}"
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}/assign"
+          }
+        },
+        {
+          "name": "Detalle final (ASIGNADO a tecnico1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/tickets/{{codigo}}"
+          }
+        }
+      ]
+    }
+  ]
+}
