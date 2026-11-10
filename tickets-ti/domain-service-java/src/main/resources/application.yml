@@ -1,0 +1,23 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: domain-service-tickets
+  datasource:
+    url: jdbc:h2:mem:tickets;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    open-in-view: false          # los adaptadores abren su propia transacción; nada de lazy loading en la capa REST
+    hibernate:
+      ddl-auto: update
+
+seguridad:
+  jwt:
+    # Clave COMPARTIDA con AuthCore, en Base64. NO se escribe aquí: se entrega por variable de entorno.
+    # Sin esta variable la aplicación no arranca (falla rápido, a propósito).
+    secret-base64: ${JWT_SECRET_BASE64}
+
+negocio:
+  zona-horaria: America/Bogota
