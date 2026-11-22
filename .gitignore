@@ -34,7 +34,10 @@ desktop.ini
 .idea/
 *.swp
 *.swo
-CLAUDE.md
+
+# Claude Code: CLAUDE.md se versiona (instrucciones compartidas); lo personal no
+CLAUDE.local.md
+.claude/settings.local.json
 
 # Docker
 .dockerignore

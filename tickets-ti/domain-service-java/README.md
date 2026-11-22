@@ -85,4 +85,7 @@ Unidad systemd y ejemplo de variables: `deploy/domain-service.service` y `deploy
 1. Adjuntar la evidencia de `mvn verify` (incluye `TicketsRestTest`).
 2. Implementar como ejercicio la tarea de SLA al 80 % y los reportes.
 
+El orden de trabajo, el backlog completo de mejoras (M-01 a M-10), las decisiones abiertas y la ruta de limpieza del repositorio están en
+[`../PENDIENTES.md`](../PENDIENTES.md) y [`../LIMPIEZA_REPO.md`](../LIMPIEZA_REPO.md).
+
 No incluye credenciales ni secretos: todo llega por variables de entorno.

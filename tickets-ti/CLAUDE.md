@@ -2,13 +2,19 @@
 
 Guía para agentes y colaboradores. Escrita en español.
 
+## Antes de empezar
+
+1. Lee `PENDIENTES.md`: estado actual, hoja de ruta por fases, backlog de mejoras y decisiones abiertas. Ahí está qué hacer y en qué orden.
+2. Para ordenar o borrar carpetas históricas existe `LIMPIEZA_REPO.md`. No ejecutes esa limpieza sin que el usuario confirme que el equipo y el profesor la aprobaron.
+3. Este archivo manda sobre tus suposiciones. Si algo no está aquí ni en `PENDIENTES.md`, pregunta en lugar de inventarlo.
+
 ## Contexto
 
 - Asignatura: Ingeniería del Software III (167420), Universidad de Pamplona.
 - Autores: Brandon Jair Martínez Ruda y Juan Esteban Basto Dávila.
 - Entregable actual: `tickets-ti/domain-service-java/`, un domain service en Java 17 / Spring Boot 3.5.6 con arquitectura hexagonal. Es el proyecto base del profesor, corregido por el grupo.
 - Alcance de este avance: HU-8 a HU-12 (crear con asignación automática, cambiar estado, reabrir, reasignar, consultar).
-- Fuera de alcance por ahora: alerta SLA al 80 %, notificaciones, reportes, frontend React.
+- Fuera de alcance por ahora: alerta SLA al 80 %, notificaciones, reportes, frontend React. Las tres primeras son las mejoras M-01 a M-03 de `PENDIENTES.md`.
 
 ## Mapa de carpetas (`tickets-ti/`)
 
@@ -72,8 +78,29 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 ## Reglas de trabajo
 
 - Commits con Conventional Commits, en español, en la rama propia del trabajo (ahora `feat/domain-service-java`). Sin push si no se pide.
-- Al preparar un commit, usar `git add -- <rutas>` y `git commit -- <rutas>` con rutas concretas. Nunca `-A`, `.` ni `-a`: hay borrados ajenos en `Diagramas/`.
+- Al preparar un commit, usar `git add -- <rutas>` y `git commit -- <rutas>` con rutas concretas. Nunca `-A`, `.` ni `-a`: el árbol de trabajo puede traer cambios ajenos a la tarea; revisa `git status` antes de cada commit e incluye solo lo tuyo.
 - Secretos solo por variables de entorno o por `/etc/domain-service.env` (permisos 600, fuera del repositorio). Sin contraseñas, IPs públicas, IDs de cuenta ni endpoints reales en ningún archivo versionado; usar marcadores como `<IP_EC2>`, `<ENDPOINT_RDS>`, `<CLAVE>`.
 - No modificar el AuthCore desplegado ni la infraestructura AWS sin confirmarlo con el dueño. Los agentes no tienen acceso a AWS y no deben intentarlo.
 - Las pruebas deben quedar en verde (`mvn verify`) antes de cada commit de código.
 - No modificar archivos fuera del alcance de la tarea.
+
+## Flujo de trabajo con Claude Code
+
+1. Elige **una** tarea de `PENDIENTES.md` (sección 3) y crea su rama (`feat/<nombre>`, `fix/<nombre>` o `docs/<nombre>`) desde `main` actualizado; mientras el PR #7 siga abierto, desde `feat/domain-service-java`.
+2. Escribe primero la prueba que falla y después el código. Si `ArquitecturaHexagonalTest` falla, el diseño rompe las capas: corrige el diseño, no la prueba.
+3. `mvn verify` en verde antes de cada commit de código. Si `mvn` o `java` no están instalados (`mvn -v`), dilo: no declares la tarea terminada sin haberlas ejecutado.
+4. Si cambias una regla de negocio, actualiza en el mismo PR la sección "Reglas de negocio" de este archivo y el README del servicio.
+5. Al terminar: marca la tarea en `PENDIENTES.md`, haz commit con rutas concretas y **pregunta antes de hacer push o abrir el PR**.
+
+### Pide confirmación al usuario antes de
+
+- Ejecutar la limpieza de `LIMPIEZA_REPO.md` o borrar carpetas, ramas o etiquetas.
+- Tocar el AuthCore desplegado, la EC2, el RDS o cualquier recurso de AWS.
+- Cambiar una regla de negocio ya confirmada (p. ej. M-08 y M-09 de `PENDIENTES.md`) o el contrato REST.
+- Hacer push, abrir o mezclar un PR, o reescribir historial (`--force`, `rebase`, `reset --hard`).
+- Manejar secretos: no los pidas, no los imprimas y no los escribas en archivos; usa marcadores como `<CLAVE>`.
+
+### Entorno
+
+- Windows: si `clone` o `checkout` fallan con "Filename too long", `git config core.longpaths true`. JDK 17 y Maven 3.9+ deben estar en el `PATH`.
+- Las variables de entorno se definen distinto en Bash (`export X=...`) y en PowerShell (`$env:X = '...'`).

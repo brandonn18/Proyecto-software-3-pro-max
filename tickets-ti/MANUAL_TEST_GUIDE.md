@@ -1,4 +1,6 @@
 # Guía de Pruebas Manuales
+
+> **Documento histórico.** Guía para el monolito Node, reemplazado. Las pruebas manuales vigentes están en `domain-service-java/requests.http` y en `domain-service-java/deploy/postman/`. Ver [`PENDIENTES.md`](PENDIENTES.md).
 ## Sistema de Gestión de Tickets TI — Ingeniería de Software II
 
 **Proyecto:** Sistema de Gestión de Tickets para TI  

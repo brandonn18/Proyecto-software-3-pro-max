@@ -1,5 +1,9 @@
 # Sistema de Gestión de Tickets de Soporte TI
 
+> **Estado actual (2026-11-22).** El entregable vigente es [`tickets-ti/domain-service-java/`](tickets-ti/domain-service-java/README.md): Java 17, Spring Boot, arquitectura hexagonal, HU-8 a HU-12, que valida los JWT del AuthCore desplegado.
+> **El resto de este README describe el monolito Node/Express antiguo y está pendiente de reescritura.**
+> Para continuar el trabajo: [`PENDIENTES.md`](tickets-ti/PENDIENTES.md) (estado y hoja de ruta) · [`CLAUDE.md`](tickets-ti/CLAUDE.md) (reglas, arquitectura y negocio) · [`LIMPIEZA_REPO.md`](tickets-ti/LIMPIEZA_REPO.md) (ordenar el repositorio).
+
 **Ingeniería de Software II — Universidad de Pamplona, 2026**  
 Brandon Jair Martínez Ruda · Juan Esteban Basto Dávila
 
