@@ -1,14 +1,18 @@
 # Ordenar y limpiar el repositorio
 
 Ruta para retirar lo que ya no se usa sin perder nada. **No ejecutar ningún paso hasta cumplir los prerrequisitos.**
+
+> **Ejecutada el 2026-11-26** para todos los bloques salvo `authcore/`, que se conserva hasta resolver la decisión 1 y
+> la fase B. Respaldo: etiqueta `archivo/pre-limpieza-2026-11` (apunta a `ce5bc03`). Como `authcore/` sigue, el compose,
+> `package.json` y `.env.example` se podaron en vez de borrarse.
 Contexto y decisiones abiertas: [PENDIENTES.md](PENDIENTES.md). Reglas de trabajo: [CLAUDE.md](CLAUDE.md).
 
 ## 0. Prerrequisitos (todos, por escrito en el chat del grupo o en el PR)
 
 - [x] El PR #7 (`feat/domain-service-java`) está mezclado en `main` (2026-11-26).
-- [ ] El equipo **y el profesor** respondieron las decisiones 1 y 2 de la sección 7 de `PENDIENTES.md`. En especial: `authcore/` es la única implementación en el repositorio de HU-1 y HU-3; retirarlo sin confirmar qué AuthCore se evalúa puede costar nota.
+- [x] El equipo **y el profesor** respondieron las decisiones 1 y 2 de la sección 7 de `PENDIENTES.md`. En especial: `authcore/` es la única implementación en el repositorio de HU-1 y HU-3; retirarlo sin confirmar qué AuthCore se evalúa puede costar nota. Decisión 2: sí, se archiva (2026-11-26). La decisión 1 sigue abierta, así que `authcore/` se conserva.
 - [ ] Si se archiva `authcore/`: el AuthCore desplegado ya está versionado en `tickets-ti/authcore-desplegado/` (fase B de `PENDIENTES.md`).
-- [ ] La limpieza va en un **PR aparte**, nunca mezclada con una mejora ni con la entrega.
+- [x] La limpieza va en un **PR aparte**, nunca mezclada con una mejora ni con la entrega.
 
 ## 1. Método: etiqueta de respaldo + `git rm`
 
@@ -90,11 +94,11 @@ cd ../.. && git status                                 # solo lo previsto
 
 ## 5. Actualizar referencias (mismo PR)
 
-- [ ] `README.md` (raíz del repositorio): reescribirlo para describir `domain-service-java/`, el AuthCore y los documentos vigentes; quitar el stack Node, las credenciales de prueba del monolito y la URL `Ing_SoftII` (el remoto es `Proyecto-software-3-pro-max`).
-- [ ] `tickets-ti/CLAUDE.md`: quitar la lista "Históricas" del mapa de carpetas y lo que ya no exista.
-- [ ] `tickets-ti/domain-service-java/README.md`: el párrafo "El grupo construyó su propia versión del domain service en Node.js" y las menciones a `tickets-ti/authcore/`.
-- [ ] `.gitignore`: la línea `/tickets-ti/frontend/build/` deja de hacer falta si se retira el frontend.
-- [ ] `PENDIENTES.md`: marcar la fase C y anotar el PR.
+- [x] `README.md` (raíz del repositorio): reescribirlo para describir `domain-service-java/`, el AuthCore y los documentos vigentes; quitar el stack Node, las credenciales de prueba del monolito y la URL `Ing_SoftII` (el remoto es `Proyecto-software-3-pro-max`).
+- [x] `tickets-ti/CLAUDE.md`: quitar la lista "Históricas" del mapa de carpetas y lo que ya no exista.
+- [x] `tickets-ti/domain-service-java/README.md`: el párrafo "El grupo construyó su propia versión del domain service en Node.js" y las menciones a `tickets-ti/authcore/`.
+- [x] `.gitignore`: la línea `/tickets-ti/frontend/build/` deja de hacer falta si se retira el frontend.
+- [x] `PENDIENTES.md`: marcar la fase C y anotar el PR.
 
 ## 6. Reversión
 

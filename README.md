@@ -1,265 +1,91 @@
 # Sistema de Gestión de Tickets de Soporte TI
 
-> **Estado actual (2026-11-22).** El entregable vigente es [`tickets-ti/domain-service-java/`](tickets-ti/domain-service-java/README.md): Java 17, Spring Boot, arquitectura hexagonal, HU-8 a HU-12, que valida los JWT del AuthCore desplegado.
-> **El resto de este README describe el monolito Node/Express antiguo y está pendiente de reescritura.**
-> Para continuar el trabajo: [`PENDIENTES.md`](tickets-ti/PENDIENTES.md) (estado y hoja de ruta) · [`CLAUDE.md`](tickets-ti/CLAUDE.md) (reglas, arquitectura y negocio) · [`LIMPIEZA_REPO.md`](tickets-ti/LIMPIEZA_REPO.md) (ordenar el repositorio).
-
-**Ingeniería de Software II — Universidad de Pamplona, 2026**  
+**Ingeniería del Software III — Universidad de Pamplona, 2026**
 Brandon Jair Martínez Ruda · Juan Esteban Basto Dávila
 
----
+Sistema para registrar, asignar y dar seguimiento a incidentes y solicitudes de soporte TI, con control de SLA por
+prioridad, avisos y reportes de gestión. El entregable vigente es
+**[`tickets-ti/domain-service-java/`](tickets-ti/domain-service-java/README.md)**: un *domain service* en Java 17 y
+Spring Boot 3.5.6 con arquitectura hexagonal, que valida localmente los JWT del AuthCore.
 
-## Descripción
+Para continuar el trabajo, el punto de partida es [`tickets-ti/PENDIENTES.md`](tickets-ti/PENDIENTES.md), con el estado y
+la hoja de ruta. Las reglas de trabajo, arquitectura y negocio están en [`tickets-ti/CLAUDE.md`](tickets-ti/CLAUDE.md).
 
-Sistema web completo para la gestión de tickets de soporte técnico. Permite registrar, clasificar, asignar y dar seguimiento a incidentes y solicitudes de TI, con control de SLA, notificaciones en tiempo real y dashboards diferenciados por rol.
+## Servicios
 
----
+| Servicio | Dónde | Tecnología | Qué hace |
+|---|---|---|---|
+| **Domain service** (entregable) | `tickets-ti/domain-service-java/`, puerto 8082 | Java 17, Spring Boot 3.5.6, Maven; H2 en desarrollo y MySQL (RDS) en producción; esquema con Flyway | Tickets, asignación automática, ciclo de estados, reapertura, reasignación, consulta por rol y por páginas, SLA y alertas, avisos, reportes |
+| **AuthCore desplegado** | Repositorio `nubwiapp/login` (Taller 2), en la EC2, puerto 8080. **No está versionado aquí** (fase B de `PENDIENTES.md`) | Java 21, Spring Boot, MySQL | `POST /api/auth/login`: emite el JWT (HS256, claim `role`) que valida el domain service |
+| **AuthCore del grupo** | `tickets-ti/authcore/`, puerto 8081 | Java 21, Spring Boot 4.1, Gradle, PostgreSQL | Login, registro y asignación de roles (HU-1 y HU-3). No es el desplegado |
 
-## Stack tecnológico
+## Qué hace el domain service
 
-| Capa | Tecnología |
-|------|-----------|
-| Backend | Node.js 18 + Express 4 |
-| ORM / DB | Sequelize 6 + PostgreSQL 14 |
-| Autenticación | JWT (8h) + bcrypt (12 rondas) |
-| Tiempo real | Socket.io 4 |
-| Frontend | React 18 + Tailwind CSS |
-| Testing | Jest 29 + Supertest + React Testing Library |
-| Contenedores | Docker + Docker Compose |
+- **HU-8 a HU-12:** crear un ticket con código `TKT-AAAA-NNNN` y asignación automática al técnico con menos carga,
+  ciclo de estados, reapertura con motivo, reasignación y consulta según el rol.
+- **Mejoras M-01 a M-07:**
+  - M-01: alerta al consumir el 80 % del SLA y marcado de vencidos.
+  - M-02: avisos por un puerto de notificaciones.
+  - M-03: reportes para el administrador.
+  - M-04: migraciones Flyway.
+  - M-05: paginación.
+  - M-06: consecutivo sin choques bajo concurrencia.
+  - M-07: política de asignación intercambiable.
+- Detalle de reglas, endpoints y diseño: [README del servicio](tickets-ti/domain-service-java/README.md).
 
-### Arquitectura por servicios (semestre actual)
+## Cómo empezar
 
-El monolito (`tickets-ti/backend/`) se está reemplazando por dos servicios:
+```bash
+git clone https://github.com/brandonn18/Proyecto-software-3-pro-max.git
+cd Proyecto-software-3-pro-max
+git config core.longpaths true                    # Windows: evita «Filename too long»
+cd tickets-ti/domain-service-java
+mvn verify                                        # requiere JDK 17 y Maven 3.9+
+export JWT_SECRET_BASE64=<CLAVE_COMPARTIDA>       # la misma del AuthCore; nunca en el repositorio
+mvn spring-boot:run                               # http://localhost:8082, H2 en memoria
+```
 
-| Servicio | Tecnología | Responsabilidad |
-|---|---|---|
-| `tickets-ti/authcore/` | Java 21 + Spring Boot 4, hexagonal + PostgreSQL | Usuarios, login y emisión de JWT (`sub`, `uid`, `roles`) |
-| `tickets-ti/domain-service/` | Node.js + Express, hexagonal + PostgreSQL | Tickets, SLA, asignación, notificaciones, Socket.io |
-
-- API de authcore: `POST /api/auth/register`, `POST /api/auth/login` → `{ token }`,
-  `GET /api/auth/users` y `POST /api/auth/users/{id}/roles` (solo `ADMIN`).
-  Roles: `ADMIN`, `TECNICO`, `USER` (domain-service los traduce a administrador / técnico / usuario).
-- domain-service valida el JWT con el mismo `JWT_SECRET` y consulta usuarios por
-  `GET /internal/users/{id}` y `GET /internal/tecnicos` (cabecera `X-Internal-Key`).
-- Tests de authcore: `cd tickets-ti/authcore && ./gradlew test` (H2 en memoria, sin base de datos).
-- Despliegue en dos cuentas de AWS: `tickets-ti/infra/aws/README.md`.
-
----
-
-## Funcionalidades implementadas
-
-- Registro y clasificación de tickets por tipo, categoría y prioridad
-- Asignación automática al técnico con menor carga de trabajo activa
-- Ciclo de vida completo: `abierto → asignado → en_proceso ⇄ en_espera → resuelto → cerrado`
-- Reapertura de tickets resueltos/cerrados con motivo registrado y SLA reiniciado
-- Control de SLA por prioridad (crítica 4h, alta 8h, media 24h, baja 72h) con alerta al 80%
-- Notificaciones en tiempo real vía Socket.io (asignación, cambios de estado, alertas SLA)
-- Dashboards diferenciados: administrador (global), técnico (sus tickets), usuario (los suyos)
-- Bloqueo de cuenta tras 5 intentos fallidos de login (15 minutos)
-- Historial de auditoría de todos los cambios de estado
-- Soft-delete en todos los modelos (Sequelize `paranoid: true`)
-- Sanitización de campos libres con `sanitize-html`
-
----
-
-## Roles del sistema
-
-| Rol | Capacidades |
-|-----|------------|
-| **Usuario** | Crear tickets, ver los propios, reabrir resueltos |
-| **Técnico** | Ver tickets asignados, cambiar estado, agregar comentarios |
-| **Administrador** | Gestión completa: usuarios, tickets, reportes, reasignación |
-
----
+- Producción y despliegue en la EC2: [`deploy/DESPLIEGUE.md`](tickets-ti/domain-service-java/deploy/DESPLIEGUE.md).
+  Antes del primer despliegue con Flyway hay que seguir su paso 10.
+- Pruebas manuales: `requests.http` y la colección de Postman en `tickets-ti/domain-service-java/deploy/postman/`.
+- AuthCore del grupo en local: `cd tickets-ti && docker compose up -d`. Necesita `tickets-ti/.env` (ver `.env.example`) y
+  `authcore/.env`.
 
 ## Estructura del repositorio
 
 ```
-Ing_SoftII/
-├── tickets-ti/
-│   ├── backend/
-│   │   ├── src/
-│   │   │   ├── config/          # DB, auth, email, Socket.io
-│   │   │   ├── controllers/     # auth, tickets, users, notifications, reports, sla
-│   │   │   ├── middlewares/     # JWT, roles, errorHandler, rateLimiter
-│   │   │   ├── models/          # User, Ticket, Notification, SLAConfig, AuditLog
-│   │   │   ├── routes/          # Definición de endpoints
-│   │   │   ├── services/        # ticketService, assignmentService, slaService, notificationService
-│   │   │   └── utils/           # helpers, validators, idGenerator
-│   │   └── tests/
-│   │       ├── unit/            # auth, tickets, notifications (53 tests)
-│   │       ├── integration/     # ticketLifecycle — flujo E2E (17 tests)
-│   │       ├── performance/     # carga concurrente, P95 < 2000ms (3 tests)
-│   │       └── acceptance/      # script standalone CP001–CP012
-│   ├── frontend/
-│   │   └── src/
-│   │       ├── pages/           # Login, Tickets, TicketDetail, TicketCreate, Dashboard, Users, Reports
-│   │       ├── components/      # Layout, Navbar, Sidebar, Badge, PrivateRoute
-│   │       ├── context/         # AuthContext, NotificationContext
-│   │       ├── hooks/           # useAuth, useTickets, useNotifications
-│   │       └── services/        # api, authService, ticketService, socketService
-│   ├── COVERAGE_REPORT.md       # Análisis de cobertura por capa
-│   └── MANUAL_TEST_GUIDE.md     # Guía paso a paso para el evaluador
-├── docker-compose.yml
-└── README.md
+README.md · CLAUDE.md
+tickets-ti/
+├── domain-service-java/     entregable: código, pruebas, deploy/ (runbook, systemd, Postman), requests.http
+├── authcore/                AuthCore Java del grupo (no es el desplegado)
+├── PENDIENTES.md            estado, hoja de ruta por fases, backlog de mejoras, decisiones abiertas
+├── CLAUDE.md                reglas de trabajo, arquitectura, reglas de negocio e integración con el AuthCore
+├── HISTORIAS_DE_USUARIO.md  historias de RF-06, RF-09 a RF-12 (borrador para el Excel)
+├── LIMPIEZA_REPO.md         cómo se retiró el código histórico y cómo recuperarlo
+└── docker-compose.yml       entorno local del AuthCore del grupo
 ```
 
----
+## Pruebas
 
-## Instalación y ejecución local
+`mvn verify` corre las pruebas de dominio, aplicación, contrato (memoria y JPA), REST, integración, concurrencia y la
+regla de arquitectura hexagonal (ArchUnit). El 2026-11-26 eran **192 pruebas, todas en verde**. La evidencia está en
+los PR #7 a #14.
 
-### Prerrequisitos
+## Código histórico
 
-- Node.js 18+
-- PostgreSQL 14+
+El 2026-11-26, con la aprobación del equipo y del profesor, se retiró lo que ya no se usaba:
 
-### 1. Clonar y configurar
+- el monolito Node/Express y sus herramientas;
+- el domain service Node;
+- el frontend React con su nginx;
+- las plantillas ECS de AWS, que no eran lo desplegado;
+- los documentos del monolito;
+- los diagramas de otra materia.
+
+Todo sigue en el historial:
 
 ```bash
-git clone https://github.com/brandonn18/Ing_SoftII.git
-cd Ing_SoftII
+git checkout archivo/pre-limpieza-2026-11 -- tickets-ti/backend        # recupera una carpeta
+git switch -c estado-anterior archivo/pre-limpieza-2026-11             # abre el estado completo de antes
+git switch -c architecture/capas archivo/architecture-capas            # variantes por arquitectura (capas, mvc, oop)
 ```
-
-### 2. Backend
-
-```bash
-cd tickets-ti/backend
-npm install
-```
-
-Crear el archivo `.env` (existe `.env.example` como referencia):
-
-```env
-PORT=3001
-NODE_ENV=development
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=tickets_ti
-DB_USER=postgres
-DB_PASSWORD=tu_password
-JWT_SECRET=clave_secreta_minimo_32_caracteres
-JWT_EXPIRES_IN=8h
-FRONTEND_URL=http://localhost:3000
-```
-
-```bash
-# Crear tablas y cargar datos iniciales
-node src/seeders/seed.js
-
-# Iniciar servidor (puerto 3001)
-npm start
-```
-
-### 3. Frontend
-
-```bash
-cd tickets-ti/frontend
-npm install
-npm start          # Abre http://localhost:3000
-```
-
----
-
-## Ejecución con Docker
-
-```bash
-cd tickets-ti
-docker-compose up --build
-```
-
-Servicios levantados:
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:3001`
-- PostgreSQL: puerto `5432`
-
----
-
-## Credenciales de prueba
-
-| Rol | Email | Contraseña |
-|-----|-------|-----------|
-| Administrador | `admin@empresa.com` | `Admin123!` |
-| Técnico 1 | `tecnico1@empresa.com` | `Tecnico123!` |
-| Técnico 2 | `tecnico2@empresa.com` | `Tecnico123!` |
-| Usuario | `usuario1@empresa.com` | `Usuario123!` |
-
----
-
-## Suite de pruebas
-
-```bash
-# Tests unitarios e integración (90 tests)
-cd tickets-ti/backend
-npm test
-
-# Reporte de cobertura
-npm run test:coverage
-
-# Script de aceptación autónomo — verifica CP001-CP012
-npm run acceptance
-
-# Tests de componentes React (22 tests)
-cd tickets-ti/frontend
-npm test -- --watchAll=false
-```
-
-**Resultados:** 112 tests en total — 90 backend + 22 frontend, todos pasando.
-
-| Suite | Tests | Estado |
-|-------|-------|--------|
-| Unit — auth | 14 | PASS |
-| Unit — tickets | 27 | PASS |
-| Unit — notifications | 12 | PASS |
-| Integration — ticketLifecycle | 17 | PASS |
-| Performance — load | 3 | PASS |
-| Frontend — TicketList | 12 | PASS |
-| Frontend — LoginForm | 10 | PASS |
-
----
-
-## API — Endpoints principales
-
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| POST | `/api/auth/login` | Autenticación | Público |
-| GET | `/api/auth/me` | Usuario autenticado | Autenticado |
-| GET | `/api/tickets` | Listar tickets (filtros, paginación) | Autenticado |
-| POST | `/api/tickets` | Crear ticket | Autenticado |
-| GET | `/api/tickets/:id` | Detalle de ticket | Autenticado |
-| PATCH | `/api/tickets/:id/status` | Cambiar estado | Técnico / Admin |
-| POST | `/api/tickets/:id/reopen` | Reabrir ticket | Usuario / Admin |
-| POST | `/api/tickets/:id/assign` | Reasignar técnico | Admin |
-| GET | `/api/reports/summary` | Resumen global | Admin |
-| GET | `/api/reports/my-dashboard` | Dashboard técnico | Técnico |
-| GET | `/api/notifications` | Notificaciones del usuario | Autenticado |
-| POST | `/api/users` | Crear usuario | Admin |
-
-Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
-
----
-
-## Documentación del proyecto
-
-| Artefacto | Ubicación |
-|-----------|-----------|
-| Plan de pruebas y gestión de riesgos | `tickets-ti/COVERAGE_REPORT.md` |
-| Guía de pruebas manuales (evaluador) | `tickets-ti/MANUAL_TEST_GUIDE.md` |
-| Script de aceptación CP001-CP012 | `tickets-ti/backend/tests/acceptance/acceptanceTests.js` |
----
-
-## Casos de prueba cubiertos
-
-| CP | Descripción | Prioridad |
-|----|-------------|-----------|
-| CP001 | Registro de ticket con ID único `TKT-YYYY-NNNN` | Alta |
-| CP002 | Clasificación por las 5 categorías del sistema | Alta |
-| CP003 | Asignación automática al técnico con menor carga | Alta |
-| CP004 | Cambio de estado con transiciones válidas e inválidas | Alta |
-| CP005 | Reapertura de ticket resuelto con motivo y nuevo SLA | Media |
-| CP006 | Notificación generada al asignar ticket (≤ 5 min) | Media |
-| CP007 | Login con JWT, sin password en respuesta, token inválido → 401 | Alta |
-| CP008 | Bloqueo de cuenta tras 5 intentos fallidos | Alta |
-| CP009 | Dashboard diferenciado según rol (admin / técnico / usuario) | Media |
-| CP010 | Alerta SLA al 80% del tiempo consumido | Alta |
-| CP011 | Creación de usuario por administrador, email duplicado → 409 | Media |
-| CP012 | Cierre de ticket resuelto, transición inválida → 400 | Media |
