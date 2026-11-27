@@ -11,7 +11,13 @@ spring:
   jpa:
     open-in-view: false          # los adaptadores abren su propia transacción; nada de lazy loading en la capa REST
     hibernate:
-      ddl-auto: update
+      # M-04: el esquema lo crean las migraciones de Flyway; Hibernate solo comprueba al arrancar que coincida con las
+      # entidades. Si una entidad cambia sin su migración, el servicio no arranca (y las pruebas fallan).
+      ddl-auto: validate
+  flyway:
+    # {vendor} lo reemplaza Spring por h2 o mysql: los tipos de fecha difieren entre bases, así que cada una tiene su
+    # carpeta en src/main/resources/db/migration. Toda migración nueva va en las dos, con el mismo número.
+    locations: classpath:db/migration/{vendor}
 
 seguridad:
   jwt:

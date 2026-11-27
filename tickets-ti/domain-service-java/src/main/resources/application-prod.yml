@@ -6,4 +6,8 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update   # mejora pendiente: reemplazar por migraciones Flyway
+      ddl-auto: validate   # M-04: el esquema lo manejan las migraciones (db/migration/mysql), no Hibernate
+  # M-04: sobre una base que ya tiene tablas pero no el historial de Flyway (la de la EC2, creada con ddl-auto: update),
+  # el servicio NO arranca y no toca nada. Para adoptarla, una sola vez y con respaldo previo, ver deploy/DESPLIEGUE.md,
+  # paso 10: se arranca con SPRING_FLYWAY_BASELINE_ON_MIGRATE=true (y SPRING_FLYWAY_BASELINE_VERSION=2 si la base ya tiene
+  # las columnas de M-01). Una base vacía no necesita nada: Flyway la crea entera.
