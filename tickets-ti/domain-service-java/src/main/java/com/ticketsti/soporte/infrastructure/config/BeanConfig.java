@@ -2,10 +2,13 @@ package com.ticketsti.soporte.infrastructure.config;
 
 import com.ticketsti.soporte.application.port.out.*;
 import com.ticketsti.soporte.application.service.*;
+import com.ticketsti.soporte.domain.service.AsignacionPorMenorCarga;
+import com.ticketsti.soporte.domain.service.AsignacionPorMenosCriticos;
 import com.ticketsti.soporte.domain.service.PoliticaAcceso;
 import com.ticketsti.soporte.domain.service.PoliticaAsignacion;
 import java.time.Clock;
 import java.time.ZoneId;
+import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,9 +25,19 @@ public class BeanConfig {
         return Clock.system(ZoneId.of(zona));
     }
 
+    /**
+     * M-07: la política de asignación se elige por configuración ({@code negocio.asignacion.politica}). Por defecto,
+     * {@code menor-carga}, la regla confirmada. Un valor desconocido no deja arrancar: es mejor que asignar con una
+     * regla que nadie pidió.
+     */
     @Bean
-    PoliticaAsignacion politicaAsignacion() {
-        return new PoliticaAsignacion();
+    PoliticaAsignacion politicaAsignacion(@Value("${negocio.asignacion.politica:menor-carga}") String nombre) {
+        return switch (nombre.trim().toLowerCase(Locale.ROOT)) {
+            case "menor-carga" -> new AsignacionPorMenorCarga();
+            case "menos-criticos" -> new AsignacionPorMenosCriticos();
+            default -> throw new IllegalArgumentException("negocio.asignacion.politica desconocida: '" + nombre
+                    + "' (use menor-carga o menos-criticos)");
+        };
     }
 
     @Bean

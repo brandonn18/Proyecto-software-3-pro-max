@@ -7,6 +7,7 @@ import com.ticketsti.soporte.application.query.Pagina;
 import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.*;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import com.ticketsti.soporte.testsupport.Datos;
 import java.time.Duration;
@@ -104,25 +105,26 @@ public abstract class TicketRepositoryContractTest {
         Ticket a = guardar("TKT-2026-0001", "m", Prioridad.ALTA, "hardware", 0);
         a.asignarA("ana", "s", true, Datos.AHORA);
         repo().guardar(a);
-        Ticket b = guardar("TKT-2026-0002", "m", Prioridad.ALTA, "hardware", 1);
+        Ticket b = guardar("TKT-2026-0002", "m", Prioridad.CRITICA, "hardware", 1);  // vigente y crítico
         b.asignarA("ana", "s", true, Datos.AHORA);
         repo().guardar(b);
-        Ticket c = guardar("TKT-2026-0003", "m", Prioridad.ALTA, "software", 2);   // otra categoría
+        Ticket c = guardar("TKT-2026-0003", "m", Prioridad.CRITICA, "software", 2);  // otra categoría
         c.asignarA("ana", "s", true, Datos.AHORA);
         repo().guardar(c);
-        Ticket d = guardar("TKT-2026-0004", "m", Prioridad.ALTA, "hardware", 3);
+        Ticket d = guardar("TKT-2026-0004", "m", Prioridad.CRITICA, "hardware", 3);
         d.asignarA("beto", "s", true, Datos.AHORA);
         d.cambiarEstado(EstadoTicket.EN_PROCESO, "beto", null, Datos.AHORA);
-        d.cambiarEstado(EstadoTicket.RESUELTO, "beto", null, Datos.AHORA);          // ya no cuenta
+        d.cambiarEstado(EstadoTicket.RESUELTO, "beto", null, Datos.AHORA);          // ya no cuenta, aunque sea crítico
         repo().guardar(d);
-        guardar("TKT-2026-0005", "m", Prioridad.ALTA, "hardware", 4);              // sin técnico
+        guardar("TKT-2026-0005", "m", Prioridad.CRITICA, "hardware", 4);           // sin técnico
 
         Collection<String> usuarios = List.of("ana", "beto", "carla");
-        Map<String, Long> carga = repo().contarVigentesPorTecnico(Categoria.de("hardware"), usuarios);
-        assertEquals(2L, carga.getOrDefault("ana", 0L).longValue());
-        assertEquals(0L, carga.getOrDefault("beto", 0L).longValue());
-        assertEquals(0L, carga.getOrDefault("carla", 0L).longValue());
-        assertEquals(1L, repo().contarVigentesPorTecnico(Categoria.de("software"), usuarios).getOrDefault("ana", 0L).longValue());
+        Map<String, CargaTecnico> carga = repo().cargaPorTecnico(Categoria.de("hardware"), usuarios);
+        assertEquals(new CargaTecnico(2, 1), carga.get("ana"));
+        assertFalse(carga.containsKey("beto"), "los que no tienen vigentes no aparecen");
+        assertFalse(carga.containsKey("carla"));
+        assertEquals(Map.of("ana", new CargaTecnico(1, 1)), repo().cargaPorTecnico(Categoria.de("software"), usuarios));
+        assertTrue(repo().cargaPorTecnico(Categoria.de("hardware"), List.of()).isEmpty());
     }
 
     @Test

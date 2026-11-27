@@ -17,6 +17,7 @@ import com.ticketsti.soporte.domain.exception.TicketNoEncontradoException;
 import com.ticketsti.soporte.domain.model.*;
 import com.ticketsti.soporte.domain.service.PoliticaAcceso;
 import com.ticketsti.soporte.domain.service.PoliticaAsignacion;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import java.time.Clock;
 import java.time.Instant;
@@ -75,7 +76,7 @@ public class TicketService implements TicketUseCase {
     private void asignarAutomaticamente(Ticket ticket, Categoria categoria, Instant ahora) {
         List<Tecnico> candidatos = tecnicos.buscarPorCategoria(categoria);
         if (candidatos.isEmpty()) return;                       // sin técnicos: queda ABIERTO, sin error
-        Map<String, Long> carga = tickets.contarVigentesPorTecnico(categoria,
+        Map<String, CargaTecnico> carga = tickets.cargaPorTecnico(categoria,
                 candidatos.stream().map(Tecnico::getUsername).toList());
         Optional<Tecnico> elegido = asignacion.elegir(candidatos, carga);
         elegido.ifPresent(t -> ticket.asignarA(t.getUsername(), "sistema", true, ahora));

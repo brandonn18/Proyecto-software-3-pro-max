@@ -5,6 +5,8 @@ import com.ticketsti.soporte.application.query.Pagina;
 import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.Ticket;
+import com.ticketsti.soporte.domain.model.Prioridad;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import java.util.*;
 
@@ -47,12 +49,14 @@ public class TicketRepositoryEnMemoria implements TicketRepositoryPort {
     }
 
     @Override
-    public Map<String, Long> contarVigentesPorTecnico(Categoria categoria, Collection<String> usernames) {
-        Map<String, Long> r = new HashMap<>();
+    public Map<String, CargaTecnico> cargaPorTecnico(Categoria categoria, Collection<String> usernames) {
+        Map<String, CargaTecnico> r = new HashMap<>();
         for (Ticket t : filas.values()) {
             if (t.getTecnico() != null && usernames.contains(t.getTecnico()) && t.getCategoria().equals(categoria)
                     && t.getEstado().estaVigente()) {
-                r.merge(t.getTecnico(), 1L, Long::sum);
+                long critico = t.getPrioridad() == Prioridad.CRITICA ? 1 : 0;
+                r.merge(t.getTecnico(), new CargaTecnico(1, critico),
+                        (a, b) -> new CargaTecnico(a.vigentes() + b.vigentes(), a.criticos() + b.criticos()));
             }
         }
         return r;

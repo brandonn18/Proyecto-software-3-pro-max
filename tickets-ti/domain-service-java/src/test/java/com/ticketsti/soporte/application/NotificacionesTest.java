@@ -10,7 +10,7 @@ import com.ticketsti.soporte.domain.exception.AccesoDenegadoException;
 import com.ticketsti.soporte.domain.exception.TicketEstadoInvalidoException;
 import com.ticketsti.soporte.domain.model.*;
 import com.ticketsti.soporte.domain.service.PoliticaAcceso;
-import com.ticketsti.soporte.domain.service.PoliticaAsignacion;
+import com.ticketsti.soporte.domain.service.AsignacionPorMenorCarga;
 import com.ticketsti.soporte.testsupport.*;
 import java.time.Duration;
 import java.util.List;
@@ -155,7 +155,7 @@ class NotificacionesTest {
         };
         NotificacionesEnMemoria notificaciones = new NotificacionesEnMemoria();
         TicketService servicio = new TicketService(noGuarda, new TecnicoRepositoryEnMemoria(), new TransaccionDirecta(),
-                Datos.relojFijo(), new PoliticaAsignacion(), new PoliticaAcceso(), notificaciones);
+                Datos.relojFijo(), new AsignacionPorMenorCarga(), new PoliticaAcceso(), notificaciones);
 
         assertThrows(IllegalStateException.class, () -> servicio.crear(maria, new CrearTicketCommand(
                 "Impresora sin respuesta", "La impresora del segundo piso no imprime", "incidente", "hardware", "alta")));

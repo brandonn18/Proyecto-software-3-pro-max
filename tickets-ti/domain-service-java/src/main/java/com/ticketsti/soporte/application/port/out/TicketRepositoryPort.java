@@ -4,6 +4,7 @@ import com.ticketsti.soporte.application.query.FiltroTicket;
 import com.ticketsti.soporte.application.query.Pagina;
 import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.domain.model.Ticket;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import java.util.Collection;
 import java.util.List;
@@ -23,8 +24,11 @@ public interface TicketRepositoryPort {
      */
     long siguienteConsecutivo(int anio);
 
-    /** Cuántos tickets vigentes (no resueltos ni cerrados) tiene cada técnico en esa categoría; los que no tienen, no aparecen. */
-    Map<String, Long> contarVigentesPorTecnico(Categoria categoria, Collection<String> usernames);
+    /**
+     * Carga de cada técnico en esa categoría: sus tickets vigentes (no resueltos ni cerrados) y cuántos de ellos son
+     * CRITICA (M-07). Los que no tienen vigentes no aparecen.
+     */
+    Map<String, CargaTecnico> cargaPorTecnico(Categoria categoria, Collection<String> usernames);
 
     /** Más recientes primero. */
     List<Ticket> buscar(FiltroTicket filtro);

@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.ticketsti.soporte.domain.exception.AccesoDenegadoException;
 import com.ticketsti.soporte.domain.exception.ValorInvalidoException;
 import com.ticketsti.soporte.domain.model.*;
+import com.ticketsti.soporte.domain.service.AsignacionPorMenorCarga;
 import com.ticketsti.soporte.domain.service.PoliticaAcceso;
 import com.ticketsti.soporte.domain.service.PoliticaAsignacion;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import com.ticketsti.soporte.testsupport.Datos;
 import java.util.List;
@@ -17,7 +19,7 @@ import org.junit.jupiter.api.Test;
 class ValoresYPoliticasTest {
 
     private final PoliticaAcceso acceso = new PoliticaAcceso();
-    private final PoliticaAsignacion asignacion = new PoliticaAsignacion();
+    private final PoliticaAsignacion asignacion = new AsignacionPorMenorCarga();
 
     private static Tecnico tec(String user) {
         return Tecnico.reconstruir(1L, user, List.of(Categoria.de("hardware")));
@@ -80,13 +82,14 @@ class ValoresYPoliticasTest {
     // ---------- asignación ----------
     @Test
     void asignaAlDeMenosCarga() {
-        var elegido = asignacion.elegir(List.of(tec("ana"), tec("beto")), Map.of("ana", 3L, "beto", 1L));
-        assertEquals("beto", elegido.orElseThrow().getUsername());
+        var elegido = asignacion.elegir(List.of(tec("ana"), tec("beto")),
+                Map.of("ana", new CargaTecnico(3, 0), "beto", new CargaTecnico(1, 1)));
+        assertEquals("beto", elegido.orElseThrow().getUsername(), "la regla por defecto no mira los críticos");
     }
 
     @Test
     void siNoHayCargaCuentaCero() {
-        var elegido = asignacion.elegir(List.of(tec("ana"), tec("beto")), Map.of("ana", 2L));
+        var elegido = asignacion.elegir(List.of(tec("ana"), tec("beto")), Map.of("ana", new CargaTecnico(2, 0)));
         assertEquals("beto", elegido.orElseThrow().getUsername());
     }
 
