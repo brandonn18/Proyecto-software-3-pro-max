@@ -49,4 +49,9 @@ public class BeanConfig {
                                                   NotificacionPort notificaciones) {
         return new VerificacionSlaService(tickets, transaccion, reloj, notificaciones);
     }
+
+    @Bean
+    ReporteService reporteService(ReporteQueryPort reportes, TecnicoRepositoryPort tecnicos, Clock reloj, PoliticaAcceso acceso) {
+        return new ReporteService(reportes, tecnicos, reloj, acceso);
+    }
 }

@@ -3,7 +3,6 @@ package com.ticketsti.soporte.domain.model;
 import com.ticketsti.soporte.domain.exception.TicketEstadoInvalidoException;
 import com.ticketsti.soporte.domain.exception.ValorInvalidoException;
 import com.ticketsti.soporte.domain.vo.Categoria;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,8 +19,8 @@ public class Ticket {
     /** Tope de comentarios y motivos que quedan en el historial. */
     public static final int LIMITE_TEXTO = 500;
 
-    /** Porcentaje del plazo del SLA a partir del cual se alerta (RF-09). */
-    public static final int PORCENTAJE_ALERTA_SLA = 80;
+    /** Porcentaje del plazo del SLA a partir del cual se alerta (RF-09). La regla vive en {@link MedicionSla}. */
+    public static final int PORCENTAJE_ALERTA_SLA = MedicionSla.PORCENTAJE_ALERTA;
 
     private static final Pattern CODIGO = Pattern.compile("TKT-\\d{4}-\\d{4,}");
     private static final String SISTEMA = "sistema";
@@ -165,8 +164,7 @@ public class Ticket {
 
     /** Momento en que se consume el {@value #PORCENTAJE_ALERTA_SLA} % del plazo del SLA vigente. */
     public Instant momentoAlertaSla() {
-        Duration plazo = Duration.ofHours(prioridad.horasSla());
-        return venceSla.minus(plazo.multipliedBy(100 - PORCENTAJE_ALERTA_SLA).dividedBy(100));
+        return MedicionSla.momentoAlerta(prioridad, venceSla);
     }
 
     /**
@@ -175,7 +173,7 @@ public class Ticket {
      */
     public Optional<EventoSla> eventoSlaPendiente(Instant ahora) {
         if (!estado.estaVigente() || slaVencidoEn != null) return Optional.empty();
-        if (!ahora.isBefore(venceSla)) return Optional.of(EventoSla.VENCIDO);
+        if (MedicionSla.vencido(venceSla, ahora)) return Optional.of(EventoSla.VENCIDO);
         if (alertaSlaEn == null && !ahora.isBefore(momentoAlertaSla())) return Optional.of(EventoSla.ALERTA_80);
         return Optional.empty();
     }

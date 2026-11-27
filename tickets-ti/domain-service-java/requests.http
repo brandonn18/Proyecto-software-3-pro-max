@@ -60,3 +60,19 @@ Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 { "tecnico": "ana" }
+
+### M-03 (RF-12): resumen de tickets (solo ADMIN; USER y TECNICO reciben 403)
+GET {{host}}/api/reportes/resumen
+Authorization: Bearer {{tokenAdmin}}
+
+### M-03: cumplimiento de SLA, total y por prioridad
+GET {{host}}/api/reportes/sla
+Authorization: Bearer {{tokenAdmin}}
+
+### M-03: desempeño por técnico
+GET {{host}}/api/reportes/tecnicos
+Authorization: Bearer {{tokenAdmin}}
+
+### M-03: un USER no ve los reportes (403)
+GET {{host}}/api/reportes/resumen
+Authorization: Bearer {{tokenUsuario}}

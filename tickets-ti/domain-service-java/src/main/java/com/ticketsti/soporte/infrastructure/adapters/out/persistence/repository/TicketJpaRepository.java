@@ -26,4 +26,13 @@ public interface TicketJpaRepository extends JpaRepository<TicketEntity, Long>, 
     @Query("select t from TicketEntity t where t.estado in :vigentes and t.slaVencidoEn is null "
             + "order by t.venceSla asc, t.id asc")
     List<TicketEntity> vigentesSinSlaVencido(@Param("vigentes") Collection<String> vigentes);
+
+    /**
+     * M-03: una fila por ticket, sin cargar el historial: [codigo, estado, prioridad, categoria, tecnico, venceSla,
+     * última vez que pasó a RESUELTO (o null)].
+     */
+    @Query("select t.codigo, t.estado, t.prioridad, t.categoria, t.tecnico, t.venceSla, max(h.cuando) "
+            + "from TicketEntity t left join t.historial h on h.a = :resuelto "
+            + "group by t.id, t.codigo, t.estado, t.prioridad, t.categoria, t.tecnico, t.venceSla")
+    List<Object[]> filasReporte(@Param("resuelto") String resuelto);
 }
