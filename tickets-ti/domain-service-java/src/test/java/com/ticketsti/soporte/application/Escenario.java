@@ -4,6 +4,7 @@ import com.ticketsti.soporte.application.port.in.command.*;
 import com.ticketsti.soporte.application.service.*;
 import com.ticketsti.soporte.domain.model.Actor;
 import com.ticketsti.soporte.domain.model.Ticket;
+import com.ticketsti.soporte.domain.service.AsignacionPorMenorCarga;
 import com.ticketsti.soporte.domain.service.PoliticaAcceso;
 import com.ticketsti.soporte.domain.service.PoliticaAsignacion;
 import com.ticketsti.soporte.testsupport.*;
@@ -20,11 +21,20 @@ final class Escenario {
 
     final TecnicoService tecnicoService = new TecnicoService(tecnicos, tx, new PoliticaAcceso());
     final NotificacionesEnMemoria notificaciones = new NotificacionesEnMemoria();
-    final TicketService ticketService = new TicketService(tickets, tecnicos, tx, reloj, new PoliticaAsignacion(), new PoliticaAcceso(),
-            notificaciones);
+    final TicketService ticketService;
     final VerificacionSlaService slaService = new VerificacionSlaService(tickets, tx, reloj, notificaciones);
     final ReporteQueryEnMemoria reportes = new ReporteQueryEnMemoria(tickets);
     final ReporteService reporteService = new ReporteService(reportes, tecnicos, reloj, new PoliticaAcceso());
+
+    /** Con la política de asignación por defecto (la regla confirmada: menor carga en la categoría). */
+    Escenario() {
+        this(new AsignacionPorMenorCarga());
+    }
+
+    /** M-07: el mismo servicio, con otra política de asignación. */
+    Escenario(PoliticaAsignacion asignacion) {
+        ticketService = new TicketService(tickets, tecnicos, tx, reloj, asignacion, new PoliticaAcceso(), notificaciones);
+    }
 
     void tecnico(String username, String... categorias) {
         tecnicoService.registrar(Datos.admin(), new RegistrarTecnicoCommand(username, Arrays.asList(categorias)));

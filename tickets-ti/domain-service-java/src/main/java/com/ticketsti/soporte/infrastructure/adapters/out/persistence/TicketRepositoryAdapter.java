@@ -5,7 +5,9 @@ import com.ticketsti.soporte.application.query.Pagina;
 import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.EstadoTicket;
+import com.ticketsti.soporte.domain.model.Prioridad;
 import com.ticketsti.soporte.domain.model.Ticket;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import com.ticketsti.soporte.infrastructure.adapters.out.persistence.entity.ContadorTicketEntity;
 import com.ticketsti.soporte.infrastructure.adapters.out.persistence.entity.TicketEntity;
@@ -97,11 +99,11 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Long> contarVigentesPorTecnico(Categoria categoria, Collection<String> usernames) {
-        Map<String, Long> carga = new HashMap<>();
+    public Map<String, CargaTecnico> cargaPorTecnico(Categoria categoria, Collection<String> usernames) {
+        Map<String, CargaTecnico> carga = new HashMap<>();
         if (usernames.isEmpty()) return carga;
-        for (Object[] fila : jpa.contarVigentes(categoria.nombre(), usernames, ESTADOS_VIGENTES)) {
-            carga.put((String) fila[0], ((Number) fila[1]).longValue());
+        for (Object[] fila : jpa.cargaVigente(categoria.nombre(), usernames, ESTADOS_VIGENTES, Prioridad.CRITICA.name())) {
+            carga.put((String) fila[0], new CargaTecnico(((Number) fila[1]).longValue(), ((Number) fila[2]).longValue()));
         }
         return carga;
     }

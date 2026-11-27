@@ -16,11 +16,14 @@ public interface TicketJpaRepository extends JpaRepository<TicketEntity, Long>, 
     @Query("select coalesce(max(t.consecutivo), 0) from TicketEntity t where t.anio = :anio")
     long maxConsecutivo(@Param("anio") int anio);
 
-    /** Cada fila es [tecnico, cantidad]. «Vigente» según EstadoTicket.estaVigente(); los nombres llegan en {@code vigentes}. */
-    @Query("select t.tecnico, count(t) from TicketEntity t where t.categoria = :categoria and t.tecnico in :usuarios "
-            + "and t.estado in :vigentes group by t.tecnico")
-    List<Object[]> contarVigentes(@Param("categoria") String categoria, @Param("usuarios") Collection<String> usuarios,
-                                  @Param("vigentes") Collection<String> vigentes);
+    /**
+     * Cada fila es [tecnico, vigentes, de ellos CRITICA]. «Vigente» según EstadoTicket.estaVigente(); los nombres llegan
+     * en {@code vigentes}.
+     */
+    @Query("select t.tecnico, count(t), sum(case when t.prioridad = :critica then 1 else 0 end) from TicketEntity t "
+            + "where t.categoria = :categoria and t.tecnico in :usuarios and t.estado in :vigentes group by t.tecnico")
+    List<Object[]> cargaVigente(@Param("categoria") String categoria, @Param("usuarios") Collection<String> usuarios,
+                                @Param("vigentes") Collection<String> vigentes, @Param("critica") String critica);
 
     /** M-01: candidatos a revisar el SLA. El que vence antes, primero. */
     @Query("select t from TicketEntity t where t.estado in :vigentes and t.slaVencidoEn is null "

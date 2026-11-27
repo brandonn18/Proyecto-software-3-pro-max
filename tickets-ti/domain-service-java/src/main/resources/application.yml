@@ -30,3 +30,7 @@ negocio:
   sla:
     # M-01: cada cuánto se buscan tickets al 80 % del SLA o vencidos (formato ISO-8601: PT1M = 1 minuto).
     intervalo-verificacion: PT1M
+  asignacion:
+    # M-07: menor-carga (regla confirmada: menos tickets vigentes en la categoría) o menos-criticos (menos tickets
+    # CRITICA vigentes en la categoría; empate, menor carga). En la EC2: NEGOCIO_ASIGNACION_POLITICA.
+    politica: menor-carga

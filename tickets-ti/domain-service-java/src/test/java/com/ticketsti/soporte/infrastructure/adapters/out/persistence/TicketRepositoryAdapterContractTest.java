@@ -6,6 +6,7 @@ import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.contract.TicketRepositoryContractTest;
 import com.ticketsti.soporte.domain.model.Ticket;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import jakarta.persistence.EntityManager;
 import java.util.Collection;
@@ -31,7 +32,7 @@ class TicketRepositoryAdapterContractTest extends TicketRepositoryContractTest {
             public Ticket guardar(Ticket t) { Ticket r = adaptador.guardar(t); em.flush(); em.clear(); return r; }
             public Optional<Ticket> buscarPorCodigo(String c) { return adaptador.buscarPorCodigo(c); }
             public long siguienteConsecutivo(int anio) { return adaptador.siguienteConsecutivo(anio); }
-            public Map<String, Long> contarVigentesPorTecnico(Categoria c, Collection<String> u) { return adaptador.contarVigentesPorTecnico(c, u); }
+            public Map<String, CargaTecnico> cargaPorTecnico(Categoria c, Collection<String> u) { return adaptador.cargaPorTecnico(c, u); }
             public List<Ticket> buscar(FiltroTicket f) { return adaptador.buscar(f); }
             public Pagina<Ticket> buscar(FiltroTicket f, Paginacion p) { return adaptador.buscar(f, p); }
             public List<Ticket> buscarVigentesSinSlaVencido() { return adaptador.buscarVigentesSinSlaVencido(); }

@@ -20,7 +20,7 @@ Paquete base: `com.ticketsti.soporte` · Java 17 · Spring Boot 3.5.6 · Maven �
 ## Arquitectura (hexagonal)
 
 ```
-domain/          Ticket, Tecnico, Actor, estados, MedicionSla, PoliticaAsignacion, PoliticaAcceso, excepciones
+domain/          Ticket, Tecnico, Actor, estados, MedicionSla, PoliticaAsignacion (2 estrategias), PoliticaAcceso, excepciones
 application/     casos de uso (TicketUseCase, TecnicoUseCase, VerificarSlaUseCase, ReporteUseCase), servicios, puertos de salida (repositorios, TransaccionPort, NotificacionPort, ReporteQueryPort)
 infrastructure/  adaptadores: REST (in), programado (in), JPA (out), notificación al log (out), seguridad JWT, configuración
 ```
@@ -68,6 +68,7 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
 
 - Código `TKT-AAAA-NNNN` (año de Bogotá + consecutivo del año); es el identificador en las rutas.
 - Asignación: entre los técnicos de la categoría, el de menos tickets vigentes **en esa categoría**; empate → menor nombre. Sin técnicos → `ABIERTO` sin técnico.
+- Política de asignación (M-07, Strategy): la regla anterior es la de por defecto (`negocio.asignacion.politica=menor-carga`). Con `menos-criticos` (en la EC2, `NEGOCIO_ASIGNACION_POLITICA=menos-criticos`) gana el de menos tickets CRITICA vigentes en la categoría; empate → menos vigentes → menor nombre. `TicketService` solo conoce la interfaz `PoliticaAsignacion`.
 - Ciclo: `asignado → en_proceso ⇄ en_espera`, `en_proceso → resuelto → cerrado`. `abierto → asignado` solo asignando un técnico.
 - Cambia el estado el técnico asignado o el ADMIN; reabre el dueño o el ADMIN; reasigna solo el ADMIN; ve un ticket su creador, su técnico y el ADMIN.
 - Consulta por páginas: `GET /api/tickets?page=0&size=20`. `page` empieza en 0 y `size` va de 1 a 100 (20 si se omite). Sin `page` ni `size` devuelve la lista completa, como antes. La cabecera `X-Total-Count` trae siempre el total que cumple los filtros y la visibilidad. Una página fuera de rango devuelve `[]` con ese total.

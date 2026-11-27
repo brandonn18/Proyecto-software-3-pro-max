@@ -7,6 +7,7 @@ import com.ticketsti.soporte.application.query.Pagina;
 import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.contract.ReporteQueryContractTest;
 import com.ticketsti.soporte.domain.model.Ticket;
+import com.ticketsti.soporte.domain.vo.CargaTecnico;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import jakarta.persistence.EntityManager;
 import java.util.Collection;
@@ -37,7 +38,7 @@ class ReporteJpaAdapterContractTest extends ReporteQueryContractTest {
             public Ticket guardar(Ticket t) { Ticket r = ticketsJpa.guardar(t); em.flush(); em.clear(); return r; }
             public Optional<Ticket> buscarPorCodigo(String c) { return ticketsJpa.buscarPorCodigo(c); }
             public long siguienteConsecutivo(int anio) { return ticketsJpa.siguienteConsecutivo(anio); }
-            public Map<String, Long> contarVigentesPorTecnico(Categoria c, Collection<String> u) { return ticketsJpa.contarVigentesPorTecnico(c, u); }
+            public Map<String, CargaTecnico> cargaPorTecnico(Categoria c, Collection<String> u) { return ticketsJpa.cargaPorTecnico(c, u); }
             public List<Ticket> buscar(FiltroTicket f) { return ticketsJpa.buscar(f); }
             public Pagina<Ticket> buscar(FiltroTicket f, Paginacion p) { return ticketsJpa.buscar(f, p); }
             public List<Ticket> buscarVigentesSinSlaVencido() { return ticketsJpa.buscarVigentesSinSlaVencido(); }
