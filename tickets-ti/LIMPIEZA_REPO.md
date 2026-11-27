@@ -5,7 +5,7 @@ Contexto y decisiones abiertas: [PENDIENTES.md](PENDIENTES.md). Reglas de trabaj
 
 ## 0. Prerrequisitos (todos, por escrito en el chat del grupo o en el PR)
 
-- [ ] El PR #7 (`feat/domain-service-java`) está mezclado en `main`.
+- [x] El PR #7 (`feat/domain-service-java`) está mezclado en `main` (2026-11-26).
 - [ ] El equipo **y el profesor** respondieron las decisiones 1 y 2 de la sección 7 de `PENDIENTES.md`. En especial: `authcore/` es la única implementación en el repositorio de HU-1 y HU-3; retirarlo sin confirmar qué AuthCore se evalúa puede costar nota.
 - [ ] Si se archiva `authcore/`: el AuthCore desplegado ya está versionado en `tickets-ti/authcore-desplegado/` (fase B de `PENDIENTES.md`).
 - [ ] La limpieza va en un **PR aparte**, nunca mezclada con una mejora ni con la entrega.
@@ -24,7 +24,7 @@ No se mueve el código muerto a una carpeta `archivo/`: seguiría apareciendo en
 | `PENDIENTES.md`, `LIMPIEZA_REPO.md`, `CLAUDE.md` | Documentos de trabajo. | **Conservar** | — |
 | `backend/` (63) | Monolito Node/Express, reemplazado. | Retirar | Solo el prerrequisito general. |
 | `herramientas/` (9) | `migrar-monolito`: utilidad del monolito. | Retirar con `backend/` | — |
-| `domain-service/` (155) | Domain service Node (puerto 3003), anterior al Java. | Retirar | Decisión 2. Las ramas `architecture/*` lo contienen y **no se tocan**. |
+| `domain-service/` (155) | Domain service Node (puerto 3003), anterior al Java. | Retirar | Decisión 2. Las variantes por arquitectura (capas, MVC, OOP) quedan en las etiquetas `archivo/architecture-*` (ver abajo). |
 | `frontend/` (48) | React; consume el contrato del servicio Node, no el Java. | Retirar | Decisión 3. Si alguien lo adapta al servicio Java, abrir esa tarea antes. |
 | `infra/aws/` (6) | Plantillas ECS de dos cuentas; **no es lo desplegado**. | Retirar | Lo desplegado se describe en `domain-service-java/deploy/DESPLIEGUE.md`. |
 | `nginx/` (1), `docker-compose.yml`, `package.json`, `.env.example` | Orquestan el stack antiguo (el compose construye `authcore`, `domain-service`, `frontend` y `nginx`). | Retirar con el stack | Si `authcore/` se **conserva**, no borrar: podar el compose, los scripts de `package.json` y las variables que ya no apliquen. |
@@ -32,7 +32,9 @@ No se mueve el código muerto a una carpeta `archivo/`: seguiría apareciendo en
 | `README.md`, `COVERAGE_REPORT.md`, `MANUAL_TEST_GUIDE.md` | Describen el monolito (112 pruebas Node). | Retirar, o reescribir el README | El README raíz del repositorio se reescribe en el paso 5. |
 | `../Diagramas/` (raíz del repositorio, 8 archivos) | Casos de uso, clases, ER de otra materia. | Retirar | Decisión 5 ya tomada; solo falta el visto bueno de quien los subió. |
 
-Ramas remotas: `architecture/capas`, `architecture/mvc` y `architecture/oop` **se conservan** (ejercicios de arquitectura sobre el servicio Node). No se borra ninguna rama remota sin acuerdo del equipo.
+Ramas remotas: desde el 2026-11-26 solo existen `main` y `feat/domain-service-java`.
+
+Las ramas `architecture/capas`, `architecture/mvc` y `architecture/oop` (ejercicios de arquitectura sobre el servicio Node) se borraron ese día a pedido de uno de los autores. Antes se guardaron en las etiquetas anotadas `archivo/architecture-capas`, `archivo/architecture-mvc` y `archivo/architecture-oop`, que apuntan exactamente a su último commit. Para recuperar una: `git switch -c architecture/capas archivo/architecture-capas`, o publicarla otra vez con `git push origin archivo/architecture-capas^{commit}:refs/heads/architecture/capas`. No se borra ninguna otra rama ni etiqueta remota sin acuerdo del equipo.
 
 **Sobre `Diagramas/`:** son de otra materia y nada del desarrollo actual los usa (verificado: ningún archivo versionado los referencia). Siguen en `origin`; se retiran en un commit propio de este PR (`git rm -r Diagramas`) y quedan en la etiqueta de respaldo. Si alguien necesita alguno más adelante: `git checkout archivo/pre-limpieza-2026-11 -- Diagramas`.
 
@@ -56,7 +58,7 @@ git rm -r tickets-ti/backend tickets-ti/herramientas
 git commit -m "chore: retirar el monolito Node (queda en la etiqueta archivo/pre-limpieza-2026-11)" -- tickets-ti/backend tickets-ti/herramientas
 
 git rm -r tickets-ti/domain-service                  # solo con la decisión 2
-git commit -m "chore: retirar el domain service Node (queda en la etiqueta y en las ramas architecture/*)" -- tickets-ti/domain-service
+git commit -m "chore: retirar el domain service Node (queda en la etiqueta y en las etiquetas archivo/architecture-*)" -- tickets-ti/domain-service
 
 git rm -r tickets-ti/frontend tickets-ti/nginx tickets-ti/docker-compose.yml tickets-ti/package.json tickets-ti/.env.example   # solo con la decisión 3
 git commit -m "chore: retirar el frontend React y la orquestacion del stack antiguo" -- tickets-ti/frontend tickets-ti/nginx tickets-ti/docker-compose.yml tickets-ti/package.json tickets-ti/.env.example

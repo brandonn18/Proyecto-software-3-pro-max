@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Tickets TI - domain-service y AuthCore",
-    "description": "Flujo de punta a punta contra el AuthCore desplegado (puerto 8080) y el domain-service (puerto 8082). Antes de ejecutar, llena las claves en las variables de la colección (clave_admin, clave_tecnico, clave_usuario). Los tokens se guardan solos al hacer login. No subas esas claves al repositorio.",
+    "description": "Flujo de punta a punta contra el AuthCore desplegado (puerto 8080) y el domain-service (puerto 8082). Antes de ejecutar, llena las claves en las variables de la colección (clave_admin, clave_tecnico, clave_usuario). Los tokens se guardan solos al hacer login. No subas esas claves al repositorio. Las carpetas 7 y 8 prueban la paginación (M-05) y los reportes del ADMIN (M-03). La alerta de SLA (M-01) y las notificaciones (M-02) no tienen endpoint: se ven en el historial del ticket y en el log del servicio.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -693,6 +693,301 @@
               ]
             },
             "url": "{{dom_host}}/api/tickets/{{codigo}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Paginación (M-05)",
+      "item": [
+        {
+          "name": "Mis tickets por páginas (200, X-Total-Count)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('X-Total-Count presente', () => pm.response.to.have.header('X-Total-Count'));",
+                  "pm.test('como mucho 2 por página', () => pm.expect(pm.response.json().length).to.be.at.most(2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/tickets?page=0&size=2",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tamaño de página fuera de rango (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/tickets?size=101",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "101"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Reportes ADMIN (M-03)",
+      "item": [
+        {
+          "name": "Resumen (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae el total y los conteos por estado', () => { const r = pm.response.json(); pm.expect(r.total).to.be.a('number'); pm.expect(r.porEstado).to.have.property('ABIERTO'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/reportes/resumen",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "resumen"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cumplimiento de SLA (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae el cumplimiento total y por prioridad', () => { const r = pm.response.json(); pm.expect(r.total.resueltos).to.be.a('number'); pm.expect(r.porPrioridad).to.have.property('CRITICA'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/reportes/sla",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "sla"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Desempeño por técnico (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('una fila por técnico', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/reportes/tecnicos",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "tecnicos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reportes como USER (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_usuario}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/reportes/resumen",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "resumen"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reportes como TECNICO (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tecnico}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{dom_host}}/api/reportes/sla",
+              "host": [
+                "{{dom_host}}"
+              ],
+              "path": [
+                "api",
+                "reportes",
+                "sla"
+              ]
+            }
           }
         }
       ]

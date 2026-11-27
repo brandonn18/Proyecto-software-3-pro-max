@@ -21,7 +21,7 @@ la ruta para ordenar el repositorio está en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md
 git clone https://github.com/brandonn18/Proyecto-software-3-pro-max.git
 cd Proyecto-software-3-pro-max
 git config core.longpaths true            # Windows: evita "Filename too long"
-git switch feat/domain-service-java       # o main, cuando el PR #7 esté mezclado
+git switch main                           # el PR #7 ya está mezclado; feat/domain-service-java queda igual a main
 cd tickets-ti/domain-service-java
 mvn verify                                # requiere JDK 17 y Maven 3.9+
 ```
@@ -113,7 +113,7 @@ Ejercicios de práctica de la guía (opcionales): atributo `ubicacion` de punta 
 
 ### E. Documentación pendiente
 
-- [ ] Escribir las historias de usuario de los requisitos sin historia propia (RF-06, 09, 10, 11, 12): observación explícita del profesor en el Excel.
+- [ ] Escribir las historias de usuario de los requisitos sin historia propia (RF-06, 09, 10, 11, 12): observación explícita del profesor en el Excel. **Borrador listo (2026-11-26):** [HISTORIAS_DE_USUARIO.md](HISTORIAS_DE_USUARIO.md), con cada criterio ligado a su prueba. Falta que el equipo confirme la numeración (HU-11 y HU-12; HU-13 a HU-15 propuestas, a cotejar con Trello), estime prioridad y dimensión y las pase al Excel.
 - [ ] Revisar los documentos del grupo (informes, capturas de AWS) y retirar o difuminar IP públicas e IDs de cuenta antes de compartirlos.
 - [ ] Confirmar si ya se resolvió el error de arranque del AuthCore del grupo (`UnsatisfiedDependencyException` en `securityConfig`) que el profesor vio en una captura.
 - [ ] Tras la limpieza (fase C): reescribir el `README.md` de la raíz para describir solo `domain-service-java/` y el AuthCore.
@@ -141,7 +141,7 @@ Ninguna se resuelve sin confirmación. Anota aquí la respuesta y la fecha.
 | # | Decisión | Quién | Respuesta |
 |---|---|---|---|
 | 1 | ¿Se archiva `authcore/` (el del grupo)? **Ojo:** es la única implementación en el repositorio de HU-1 y HU-3 (registro y asignación de roles); el AuthCore desplegado solo hace login. | Equipo + profesor | — |
-| 2 | ¿Se archiva `domain-service/` (Node)? Las ramas `architecture/capas`, `architecture/mvc` y `architecture/oop` se hicieron sobre él y se conservan. | Equipo + profesor | — |
+| 2 | ¿Se archiva `domain-service/` (Node)? Las ramas `architecture/capas`, `architecture/mvc` y `architecture/oop` se hicieron sobre él. Se borraron el 2026-11-26 y quedan en las etiquetas `archivo/architecture-*` (ver `LIMPIEZA_REPO.md`). | Equipo + profesor | — |
 | 3 | ¿Se archiva `frontend/` o alguien lo adapta al contrato del servicio Java? | Equipo | — |
 | 4 | ¿Qué detalles de la tabla de la fase B.6 aplica el dueño del AuthCore? | Dueño del AuthCore | — |
 | 5 | `Diagramas/` (casos de uso, clases, ER, subidos en abril de 2026). | Juan | **Resuelta (2026-11-22):** pertenecen a otra materia y nada del desarrollo actual depende de ellos. Se retiran en el PR de limpieza (fase C); hasta entonces siguen en `origin` y quedan en la etiqueta de respaldo. Falta el visto bueno de quien los subió. |
