@@ -82,6 +82,7 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
   Cumple el SLA el ticket cuya última resolución fue antes de vencer su SLA vigente; uno reabierto se mide con su nuevo plazo.
 - Errores: 400 datos inválidos · 403 sin permiso · 404 no existe · 409 transición no permitida/duplicado/concurrencia · 405 método no permitido · 415 tipo de contenido no soportado · 422 otra regla · 500 error interno.
 - Concurrencia: `@Version` en las entidades y restricciones únicas (código, usuario del técnico) como última defensa.
+- Consecutivo del código (M-06): sale del contador de su año (tabla `contador_ticket`, migración V3), que se bloquea con `SELECT … FOR UPDATE` mientras se crea el ticket. Dos creaciones simultáneas no reciben el mismo número ni fallan: la segunda espera a la primera. La fila `anio = 0` es el candado para crear el contador de un año nuevo.
 
 ## Integración con el AuthCore desplegado y diferencias justificadas
 

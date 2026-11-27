@@ -279,8 +279,9 @@ La adopción se hace **una sola vez**, coordinada con el dueño de la EC2 y del 
    ```
 
 4. Copiar el jar nuevo (paso 2) y reiniciar con `sudo systemctl restart domain-service`. En `journalctl -u domain-service`
-   debe aparecer `Successfully baselined schema with version: 1` y, si era la versión 1,
-   ``Successfully applied 1 migration to schema `tickets`, now at version v2``.
+   debe aparecer `Successfully baselined schema with version: 1` (o `2`) y después se aplican las migraciones que le
+   faltan hasta la última. Con versión 1 son V2 (marcas de SLA) y V3 (contador de tickets, M-06), y el log dice
+   ``Successfully applied 2 migrations to schema `tickets`, now at version v3``. Con versión 2 solo se aplica V3.
 
 5. Verificar el historial y repetir la prueba de punta a punta (paso 8):
 
@@ -288,7 +289,9 @@ La adopción se hace **una sola vez**, coordinada con el dueño de la EC2 y del 
    SELECT version, description, type, success FROM tickets.flyway_schema_history ORDER BY installed_rank;
    ```
 
-   Versión 1: dos filas, `BASELINE` (1) y `SQL` (2, `marcas sla`), ambas con `success` = 1. Versión 2: una fila, `BASELINE` (2).
+   Todas con `success` = 1. Versión 1: `BASELINE` (1), `SQL` (2, `marcas sla`) y `SQL` (3, `contador ticket`).
+   Versión 2: `BASELINE` (2) y `SQL` (3). La tabla `contador_ticket` debe tener la fila candado `(0, 0)` y una fila por año
+   con tickets, con su último consecutivo: `SELECT * FROM tickets.contador_ticket;`.
 
 6. Quitar las dos líneas del env y reiniciar otra vez. El log debe decir ``Schema `tickets` is up to date``: desde ahora cada
    despliegue aplica solo las migraciones nuevas, sin variables extra.
@@ -302,10 +305,19 @@ Procedimiento probado el 2026-11-26 contra MySQL 8.0.46, con una base creada (y 
 - sin las variables, no arranca y no toca nada;
 - con versión 1, aplica V2 y conserva los datos, y los reportes funcionan;
 - el segundo arranque no necesita las variables;
-- una base vacía queda en V2;
+- una base vacía queda en la última versión;
 - una base con las columnas de M-01 falla con versión 1 y se recupera como se indica arriba.
 
-**Cambios de esquema futuros:** nunca se edita una migración ya aplicada. Se agrega `V3__<descripción>.sql`, y así
+Con V3 (M-06), probado el mismo día contra MySQL 8.0.46:
+
+- una base con 25 tickets creada por la versión anterior quedó con el contador sembrado en 25;
+- 150 creaciones simultáneas en 15 hilos recibieron los números 26 a 175, sin repetidos ni huecos;
+- en una base vacía, 80 creaciones simultáneas del primer ticket del año, en 16 hilos, recibieron del 1 al 80;
+- no hubo interbloqueos ni esperas vencidas.
+
+Con la versión anterior, 24 de 60 creaciones simultáneas fallaban con 409.
+
+**Cambios de esquema futuros:** nunca se edita una migración ya aplicada. Se agrega `V4__<descripción>.sql`, y así
 sucesivamente, en `db/migration/mysql` y en `db/migration/h2` con el mismo número (`MigracionesTest` exige que coincidan).
 
 ## Capturas y compartir evidencias
