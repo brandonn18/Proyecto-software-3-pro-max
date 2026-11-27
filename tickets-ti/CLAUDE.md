@@ -55,6 +55,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 ## Reglas de negocio
 
 - Código de ticket `TKT-AAAA-NNNN`: año en zona America/Bogota, consecutivo por año. Es el identificador en las rutas.
+- Consecutivo bajo concurrencia (M-06): se reserva con el contador del año, en la tabla `contador_ticket`, que se bloquea con `SELECT … FOR UPDATE` dentro de la transacción que crea el ticket. Las creaciones simultáneas esperan su turno: no hay números repetidos, no hay huecos y no se responde 409. Si la creación falla, el número no se consume. La fila `anio = 0` es un candado para crear el contador de un año nuevo; no se borra.
 - Estados: ABIERTO, ASIGNADO, EN_PROCESO, EN_ESPERA, RESUELTO, CERRADO.
 - Transiciones válidas: ASIGNADO→EN_PROCESO; EN_PROCESO⇄EN_ESPERA; EN_PROCESO→RESUELTO; RESUELTO→CERRADO. ABIERTO→ASIGNADO solo al asignar técnico. Cualquier otra transición responde 409.
 - Reabrir: solo desde RESUELTO o CERRADO, con motivo obligatorio. Vuelve a ABIERTO sin técnico y con SLA reiniciado.

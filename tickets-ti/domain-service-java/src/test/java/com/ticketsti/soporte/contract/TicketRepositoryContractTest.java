@@ -196,6 +196,16 @@ public abstract class TicketRepositoryContractTest {
     }
 
     @Test
+    void reservarNoRepiteAunqueElTicketNoSeHayaGuardado() {
+        // M-06: el número queda reservado al pedirlo, no al guardar el ticket
+        assertEquals(1, repo().siguienteConsecutivo(2030));
+        assertEquals(2, repo().siguienteConsecutivo(2030));
+        assertEquals(1, repo().siguienteConsecutivo(2031), "cada año tiene su contador");
+        guardar("TKT-2030-0009", "maria", Prioridad.ALTA, "redes", 0);     // uno que no pasó por el contador
+        assertEquals(10, repo().siguienteConsecutivo(2030), "nunca repite uno ya usado");
+    }
+
+    @Test
     void buscaPorPaginasConElTotal() {
         for (int i = 1; i <= 5; i++) {
             guardar(String.format("TKT-2026-%04d", i), i % 2 == 0 ? "jose" : "maria", i <= 3 ? Prioridad.ALTA : Prioridad.BAJA,

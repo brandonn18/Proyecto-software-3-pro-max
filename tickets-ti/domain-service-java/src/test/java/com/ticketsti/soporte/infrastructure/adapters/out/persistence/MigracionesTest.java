@@ -34,7 +34,7 @@ class MigracionesTest {
     @DisplayName("Flyway aplicó todas las migraciones, en orden, y Hibernate validó el esquema resultante")
     void migracionesAplicadas() {
         List<MigrationInfo> aplicadas = Arrays.asList(flyway.info().applied());
-        assertEquals(List.of("1", "2"), aplicadas.stream().map(m -> m.getVersion().getVersion()).toList());
+        assertEquals(List.of("1", "2", "3"), aplicadas.stream().map(m -> m.getVersion().getVersion()).toList());
         assertTrue(aplicadas.stream().allMatch(m -> m.getState() == MigrationState.SUCCESS));
         assertEquals(0, flyway.info().pending().length);
     }
