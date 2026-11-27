@@ -29,6 +29,10 @@ Content-Type: application/json
 GET {{host}}/api/tickets?estado=asignado&prioridad=alta
 Authorization: Bearer {{tokenUsuario}}
 
+### M-05: la misma consulta por páginas (page desde 0, size de 1 a 100); el total viene en la cabecera X-Total-Count
+GET {{host}}/api/tickets?estado=asignado&page=0&size=10
+Authorization: Bearer {{tokenUsuario}}
+
 ### HU-12: detalle con historial (cambie el código por el que devolvió la creación)
 GET {{host}}/api/tickets/TKT-2026-0001
 Authorization: Bearer {{tokenUsuario}}

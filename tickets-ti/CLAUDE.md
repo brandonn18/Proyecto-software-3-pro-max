@@ -65,6 +65,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 - Asignación automática: técnico de la categoría con menos tickets vigentes en esa categoría; empate, menor username. Sin técnicos, el ticket queda ABIERTO.
 - Reasignar: solo ADMIN, a un técnico registrado distinto del actual, nunca sobre tickets RESUELTO o CERRADO.
 - Visibilidad: USER ve los que creó; TECNICO, los que creó o tiene asignados; ADMIN, todos.
+- Consulta por páginas (M-05): `GET /api/tickets` acepta `page` (desde 0) y `size` (1 a 100, 20 por defecto), ambos opcionales. Sin ninguno de los dos devuelve la lista completa, como antes. La visibilidad y los filtros se aplican antes de paginar; el orden es más recientes primero, con el id como desempate. La cabecera `X-Total-Count` va siempre, con el total que cumple la consulta. Fuera de rango, o con un parámetro desconocido, responde 400.
 - Errores: 400 datos inválidos, 401 sin token válido, 403 sin permiso, 404 no existe, 409 transición/duplicado/concurrencia, 422 otra regla de negocio, 500 error interno.
 - Decisiones del Excel del profesor: confirmadas por el grupo.
 
