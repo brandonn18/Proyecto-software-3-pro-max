@@ -10,9 +10,9 @@ la ruta para ordenar el repositorio está en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md
 |---|---|
 | Entregable | `domain-service-java/` (HU-8 a HU-12), Java 17 · Spring Boot 3.5.6 · hexagonal. |
 | Rama / PR | **PR #7 mezclado a `main`** con *merge commit* el 2026-11-26. Se conserva la rama `feat/domain-service-java`. |
-| Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. Con M-01 (PR #8): **138 pruebas**, todas en verde. |
+| Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. Con M-01 (PR #8): **138 pruebas**, todas en verde. Con M-02 (PR #9): **149 pruebas**, todas en verde. |
 | AuthCore | El que valida el servicio es el **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2). Solo expone `POST /api/auth/login`. **No está versionado en este repositorio** (ver fase B). |
-| Fuera del entregable | Notificaciones, reportes, frontend React (ver sección 5). La alerta de SLA al 80 % ya está hecha (M-01). |
+| Fuera del entregable | Reportes y frontend React (ver sección 5). Ya están hechas M-01 (alerta de SLA al 80 %) y M-02 (notificaciones; por ahora el único canal es el log). |
 | Código histórico | `backend/`, `domain-service/`, `frontend/`, `authcore/` (el del grupo), `infra/`, `herramientas/`, `nginx/`: siguen en el repositorio y deben ordenarse (sección 6). |
 
 ## 2. Cómo empezar
@@ -99,7 +99,7 @@ Orden sugerido (de más a menos valor para la entrega; las tres primeras salen d
 | ID | Mejora | Origen | Dónde | Terminado cuando |
 |---|---|---|---|---|
 | M-01 | [x] **Alerta de SLA al 80 % y marcado de vencidos.** Caso de uso `VerificarSla`, disparado por un adaptador de entrada programado (`@Scheduled`). **Hecho el 2026-11-26, PR #8**: `VerificarSlaUseCase` → `VerificacionSlaService` → `Ticket.verificarSla`, adaptador `adapters/in/programacion/VerificacionSlaProgramada`. Para no alertar dos veces, el ticket guarda las marcas `alertaSlaEn` y `slaVencidoEn`; reabrir las reinicia. | RF-09; guía §9 (nivel medio) | `application/port/in`, `application/service`, adaptador en `infrastructure/adapters/in` | Pruebas con `RelojAjustable` para 79 %, 80 % y vencido; decidir y probar cómo evitar alertar dos veces el mismo ticket. Cubierto por `SlaTicketTest`, `VerificacionSlaServiceTest`, `VerificacionSlaIntegracionTest` y el contrato del repositorio. |
-| M-02 | **Puerto `NotificacionPort`** con un adaptador que registre la creación, la asignación, la resolución y las alertas de M-01. Socket.io o correo serían adaptadores posteriores. | RF-10; guía §9 | `application/port/out`, adaptador en `infrastructure` | Se notifica en los tres eventos; los servicios no conocen el adaptador. |
+| M-02 | [x] **Puerto `NotificacionPort`** con un adaptador que registre la creación, la asignación, la resolución y las alertas de M-01. Socket.io o correo serían adaptadores posteriores. **Hecho el 2026-11-26, PR #9**: `TicketService` y `VerificacionSlaService` avisan por el puerto después de guardar, y una falla del canal no deshace la operación. El adaptador `adapters/out/notificacion/NotificacionRegistroAdapter` escribe una línea de log por aviso y quita los saltos de línea del texto del usuario. A quién avisar lo decide cada canal. | RF-10; guía §9 | `application/port/out`, adaptador en `infrastructure` | Se notifica en los tres eventos; los servicios no conocen el adaptador. Cubierto por `NotificacionesTest`, `NotificacionRegistroAdapterTest` y `VerificacionSlaIntegracionTest`. |
 | M-03 | **Reportes**: resumen, cumplimiento de SLA y desempeño por técnico, solo ADMIN, con su propio puerto de solo lectura. | RF-12; guía §9 (avanzado) | puerto de consulta propio + adaptador JPA + controlador | Cada reporte con prueba de contrato; 403 para USER y TECNICO. |
 | M-04 | **Migraciones Flyway** en lugar de `ddl-auto: update` en el perfil `prod`. | Limitación conocida (`application-prod.yml`) | `pom.xml`, `src/main/resources/db/migration` | La base de la EC2 ya tiene tablas creadas por `update`: partir de un *baseline*, probar contra una copia y **no** aplicar en la EC2 sin el dueño. |
 | M-05 | **Paginación** de `GET /api/tickets` (hoy devuelve la lista completa). | Hallazgo del 2026-11-22 | `TicketController`, `FiltroTicket`, puerto de repositorio | Parámetros de página con tope máximo; pruebas de contrato con doble en memoria y JPA. |
@@ -127,7 +127,7 @@ Pídelos o compártanlos por Drive. **Nunca** compartan el `.pem` de la EC2 ni e
 ## 5. Alcance
 
 - Dentro: HU-8 a HU-12. HU-1 a HU-7 son del AuthCore común.
-- Fuera por ahora: RF-10 (notificaciones), RF-12 (reportes) y el frontend. Las dos primeras son las mejoras M-02 y M-03. RF-09 (alerta al 80 %) quedó cubierto con M-01.
+- Fuera por ahora: RF-12 (reportes, mejora M-03) y el frontend. RF-09 (alerta al 80 %) quedó cubierto con M-01 y RF-10 (notificaciones) con M-02. Hoy el aviso va al log; un canal de correo o Socket.io sería otro adaptador de `NotificacionPort`.
 
 ## 6. Ordenar y limpiar el repositorio
 
