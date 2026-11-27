@@ -1,0 +1,9 @@
+# Perfil "prod": MySQL. Se activa con SPRING_PROFILES_ACTIVE=prod.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/tickets}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update   # mejora pendiente: reemplazar por migraciones Flyway

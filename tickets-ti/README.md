@@ -1,5 +1,7 @@
 # Sistema de Gestión de Tickets de Soporte TI
 
+> **Documento histórico.** Describe el monolito Node/Express y el stack Docker anteriores, que ya no son el entregable. El entregable vigente es [`domain-service-java/`](domain-service-java/README.md). Estado y próximos pasos: [`PENDIENTES.md`](PENDIENTES.md) · Reglas de trabajo: [`CLAUDE.md`](CLAUDE.md).
+
 Sistema web para gestión de incidentes y solicitudes de soporte técnico, desarrollado como proyecto de **Ingeniería de Software II** — Universidad de Pamplona.
 
 **Autores:** Brandon Jair Martínez Ruda · Juan Esteban Basto Dávila  

@@ -1,0 +1,62 @@
+### Variables. Los tokens los emite AuthCore con POST /api/auth/login (ajusta la ruta a la de su AuthCore).
+### Péguelos aquí, NO los suba al repositorio.
+@host = http://localhost:8082
+@tokenAdmin = PEGA_AQUI_EL_TOKEN_DE_UN_ADMIN
+@tokenUsuario = PEGA_AQUI_EL_TOKEN_DE_UN_USER
+@tokenTecnico = PEGA_AQUI_EL_TOKEN_DE_UN_TECNICO
+
+### Técnicos y categorías que atienden (solo ADMIN). El usuario es el mismo que tiene en AuthCore.
+POST {{host}}/api/tecnicos
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{ "username": "ana", "categorias": ["hardware", "redes"] }
+
+###
+GET {{host}}/api/tecnicos
+Authorization: Bearer {{tokenAdmin}}
+
+### HU-8: crear un ticket (cualquier usuario autenticado). Se asigna solo al técnico con menos carga.
+POST {{host}}/api/tickets
+Authorization: Bearer {{tokenUsuario}}
+Content-Type: application/json
+
+{ "titulo": "Impresora sin respuesta",
+  "descripcion": "La impresora del segundo piso no imprime",
+  "tipo": "incidente", "categoria": "hardware", "prioridad": "alta" }
+
+### HU-12: consultar lo mío, con filtros opcionales (estado, prioridad, categoria, tipo)
+GET {{host}}/api/tickets?estado=asignado&prioridad=alta
+Authorization: Bearer {{tokenUsuario}}
+
+### HU-12: detalle con historial (cambie el código por el que devolvió la creación)
+GET {{host}}/api/tickets/TKT-2026-0001
+Authorization: Bearer {{tokenUsuario}}
+
+### HU-9: el técnico asignado cambia el estado (asignado -> en_proceso -> en_espera/resuelto)
+PATCH {{host}}/api/tickets/TKT-2026-0001/status
+Authorization: Bearer {{tokenTecnico}}
+Content-Type: application/json
+
+{ "estado": "en_proceso", "comentario": "Empiezo a revisar" }
+
+### HU-9: saltarse el ciclo (asignado -> resuelto) responde 409
+PATCH {{host}}/api/tickets/TKT-2026-0001/status
+Authorization: Bearer {{tokenTecnico}}
+Content-Type: application/json
+
+{ "estado": "resuelto" }
+
+### HU-10: el dueño reabre un ticket resuelto o cerrado, con motivo obligatorio
+POST {{host}}/api/tickets/TKT-2026-0001/reopen
+Authorization: Bearer {{tokenUsuario}}
+Content-Type: application/json
+
+{ "motivo": "El problema volvió" }
+
+### HU-11: el administrador reasigna a otro técnico
+POST {{host}}/api/tickets/TKT-2026-0001/assign
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{ "tecnico": "ana" }

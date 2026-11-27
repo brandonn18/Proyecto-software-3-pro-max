@@ -1,112 +1,106 @@
-# Sistema de Gestión de Tickets de Soporte TI
-**Ingeniería de Software II — Universidad de Pamplona**
-Brandon Jair Martínez Ruda · Juan Esteban Basto Dávila
+# CLAUDE.md — Tickets TI
 
----
+Guía para agentes y colaboradores. Escrita en español.
 
-## Contexto rápido
-Sistema web para gestionar tickets de soporte técnico (incidentes y solicitudes).
-Stack: Node.js + Express + Sequelize + PostgreSQL · React + Tailwind · JWT · Socket.io · Jest.
-Repositorio: https://github.com/brandonn18/Ing_SoftII/
+## Antes de empezar
 
----
+1. Lee `PENDIENTES.md`: estado actual, hoja de ruta por fases, backlog de mejoras y decisiones abiertas. Ahí está qué hacer y en qué orden.
+2. Para ordenar o borrar carpetas históricas existe `LIMPIEZA_REPO.md`. No ejecutes esa limpieza sin que el usuario confirme que el equipo y el profesor la aprobaron.
+3. Este archivo manda sobre tus suposiciones. Si algo no está aquí ni en `PENDIENTES.md`, pregunta en lugar de inventarlo.
 
-## Estructura de carpetas
+## Contexto
 
-```
-Ing_SoftII/
-└── tickets-ti/
-    ├── backend/src/
-    │   ├── config/       db.js, auth.js, email.js
-    │   ├── models/       User, Ticket, Category, Notification, SLAConfig, AuditLog
-    │   ├── controllers/  auth, users, tickets, notifications, reports, sla
-    │   ├── routes/       auth, users, tickets, notifications, reports
-    │   ├── middlewares/  auth.js, roles.js, errorHandler.js, rateLimiter.js
-    │   ├── services/     ticketService, notificationService, slaService, assignmentService
-    │   ├── utils/        helpers.js, constants.js, validators.js
-    │   └── app.js / server.js
-    ├── backend/tests/    unit/, integration/, acceptance/
-    └── frontend/src/
-        ├── pages/        Login, Dashboard, Tickets, Users, Reports, Profile
-        ├── components/   shared/, layout/, forms/
-        ├── hooks/        useAuth, useTickets, useNotifications
-        ├── services/     api.js, authService, ticketService
-        └── context/      AuthContext, NotificationContext
-```
+- Asignatura: Ingeniería del Software III (167420), Universidad de Pamplona.
+- Autores: Brandon Jair Martínez Ruda y Juan Esteban Basto Dávila.
+- Entregable actual: `tickets-ti/domain-service-java/`, un domain service en Java 17 / Spring Boot 3.5.6 con arquitectura hexagonal. Es el proyecto base del profesor, corregido por el grupo.
+- Alcance de este avance: HU-8 a HU-12 (crear con asignación automática, cambiar estado, reabrir, reasignar, consultar).
+- Fuera de alcance por ahora: alerta SLA al 80 %, notificaciones, reportes, frontend React. Las tres primeras son las mejoras M-01 a M-03 de `PENDIENTES.md`.
 
----
+## Mapa de carpetas (`tickets-ti/`)
 
-## Modelos clave
+Entregable vigente:
 
-**User**: id, nombre, email, password(bcrypt·12), rol(`usuario|tecnico|administrador`), activo, intentos_login, bloqueado_hasta
+- `domain-service-java/`: servicio de dominio Java. Incluye `deploy/` (unidad systemd, ejemplo de variables y runbook de despliegue).
+- `authcore/`: AuthCore Java propio del grupo. **No es el desplegado**; el desplegado viene del Taller 2 (ver integración).
 
-**Ticket**: id(`TKT-YYYY-NNNN`), titulo, descripcion, tipo(`incidente|solicitud`), categoria(`hardware|software|red|accesos|servicios_ti`), prioridad(`baja|media|alta|critica`), estado(ver ciclo abajo), usuarioId(FK), tecnicoId(FK), reabierto(bool), motivo_reapertura, sla_limite, sla_alerta_enviada
+Históricas (no son fuente de verdad del estado actual):
 
-**SLAConfig**: critica=4h · alta=8h · media=24h · baja=72h
+- `backend/`: monolito Node/Express antiguo, reemplazado. Los documentos de la raíz (`README.md`, `COVERAGE_REPORT.md`, `MANUAL_TEST_GUIDE.md`) y `docker-compose.yml`/`nginx/` describen ese monolito.
+- `domain-service/`: versión Node del dominio (puerto 3003), anterior al servicio Java.
+- `frontend/`: React; consume el contrato Node, no el servicio Java.
+- `infra/aws/`: plantillas ECS. **No es lo desplegado.**
+- `herramientas/`: utilidades del monolito (p. ej. `migrar-monolito`).
 
----
+## Comandos (desde `tickets-ti/domain-service-java/`)
 
-## Ciclo de vida del ticket (transiciones válidas)
+- `mvn verify`: compila y ejecuta todas las pruebas (requiere JDK 17 y Maven 3.9+).
+- `mvn -DskipTests package`: genera `target/domain-service-tickets-0.1.0-SNAPSHOT.jar`.
+- Desarrollo: `export JWT_SECRET_BASE64=<CLAVE_COMPARTIDA>` y luego `mvn spring-boot:run`. Escucha en `http://localhost:8082` con H2 en memoria.
+- Producción: `SPRING_PROFILES_ACTIVE=prod` más `DB_URL`, `DB_USER`, `DB_PASSWORD` (y `PORT`, opcional: define `server.port`, por defecto 8082).
+- Salud: `GET /api/health` (público, sin token; responde 200 `{"status":"UP"}`).
 
-```
-abierto → asignado → en_proceso ⇄ en_espera
-                         ↓
-                      resuelto → cerrado
-resuelto o cerrado → abierto  (reapertura)
-```
-Cualquier otra transición = error 400.
+## Arquitectura y reglas de dependencia
 
----
+Paquete base `com.ticketsti.soporte`:
 
-## Reglas de negocio que no pueden fallar
+- `domain/`: modelo y reglas (Ticket, Tecnico, Actor, estados, `PoliticaAsignacion`, `PoliticaAcceso`, excepciones). Sin frameworks.
+- `application/`: casos de uso (`TicketUseCase`, `TecnicoUseCase`), servicios y puertos (`port/in`, `port/out`). Sin Spring ni JPA.
+- `infrastructure/`: adaptadores de entrada REST (`adapters/in/rest`), de salida JPA (`adapters/out/persistence`), seguridad JWT (`security`) y configuración (`config`).
 
-1. ID de ticket: formato `TKT-YYYY-NNNN`, correlativo por año, generado en `ticketService.createTicket()`
-2. Asignación automática: técnico activo con **menor cantidad** de tickets no cerrados en esa categoría
-3. Bloqueo de cuenta: 5 intentos fallidos → `bloqueado_hasta = now + 15min`
-4. Alerta SLA: cron cada 15min → si ticket activo tiene ≥80% del tiempo SLA consumido y `sla_alerta_enviada=false` → email al técnico + marcar flag
-5. `password` nunca aparece en ninguna respuesta JSON (usar `{ exclude: ['password'] }`)
+Dependencias permitidas: `infrastructure` → `application` → `domain`. `ArquitecturaHexagonalTest` (ArchUnit) lo verifica y rompe la build si se incumple.
 
----
+Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; el reloj se inyecta (`Clock`); la transacción se pide por `TransaccionPort`.
 
-## Permisos por rol
+## Reglas de negocio
 
-| Acción | usuario | tecnico | administrador |
-|--------|:-------:|:-------:|:-------------:|
-| Crear ticket | ✅ | ✅ | ✅ |
-| Ver propios tickets | ✅ | — | — |
-| Ver asignados | — | ✅ | — |
-| Ver todos | — | — | ✅ |
-| Cambiar estado | — | ✅(asignados) | ✅ |
-| Reabrir | ✅ | — | ✅ |
-| CRUD usuarios | — | — | ✅ |
-| Dashboard completo | — | — | ✅ |
+- Código de ticket `TKT-AAAA-NNNN`: año en zona America/Bogota, consecutivo por año. Es el identificador en las rutas.
+- Estados: ABIERTO, ASIGNADO, EN_PROCESO, EN_ESPERA, RESUELTO, CERRADO.
+- Transiciones válidas: ASIGNADO→EN_PROCESO; EN_PROCESO⇄EN_ESPERA; EN_PROCESO→RESUELTO; RESUELTO→CERRADO. ABIERTO→ASIGNADO solo al asignar técnico. Cualquier otra transición responde 409.
+- Reabrir: solo desde RESUELTO o CERRADO, con motivo obligatorio. Vuelve a ABIERTO sin técnico y con SLA reiniciado.
+- SLA en horas corridas: CRITICA 4, ALTA 8, MEDIA 24, BAJA 72.
+- Asignación automática: técnico de la categoría con menos tickets vigentes en esa categoría; empate, menor username. Sin técnicos, el ticket queda ABIERTO.
+- Reasignar: solo ADMIN, a un técnico registrado distinto del actual, nunca sobre tickets RESUELTO o CERRADO.
+- Visibilidad: USER ve los que creó; TECNICO, los que creó o tiene asignados; ADMIN, todos.
+- Errores: 400 datos inválidos, 401 sin token válido, 403 sin permiso, 404 no existe, 409 transición/duplicado/concurrencia, 422 otra regla de negocio, 500 error interno.
+- Decisiones del Excel del profesor: confirmadas por el grupo.
 
----
+## Integración con AuthCore
 
-## Casos de prueba a satisfacer (Plan de Pruebas oficial)
+- AuthCore desplegado: repositorio `nubwiapp/login` (Taller 2), en una EC2 con Java 21, servicio systemd `login-api`, base MySQL en RDS, puerto 8080.
+- Único endpoint usado: `POST /api/auth/login` con `{"username","password"}`. Responde 200 `{"token","username","role"}` o 401.
+- No hay endpoints de registro ni de asignación de roles: los usuarios se crean por SQL en la tabla `users(username, password BCrypt, role)`. Roles: `ROLE_ADMIN`, `ROLE_TECNICO`, `ROLE_USER`.
+- JWT del AuthCore desplegado: HS256, clave = secreto Base64 decodificado, claims `sub`, `role` (texto), `iat`, `exp`. Sin `uid` ni `roles[]`.
+- El domain service valida el JWT localmente con la clave compartida; nunca llama al AuthCore. Tolerancia de reloj: 30 s.
+- La clave llega solo por `JWT_SECRET_BASE64`, idéntica al `jwt.secret` del AuthCore. Si falta, el servicio no arranca.
+- El validador (`infrastructure/security/JwtTokenValidator.java`) lee `roles` (lista, formato de la guía) y `role` (texto, AuthCore desplegado), los une sin duplicados y normaliza el prefijo `ROLE_` y las mayúsculas. `uid` es opcional.
+- El `username` de `POST /api/tecnicos` debe ser idéntico al del AuthCore, y ese usuario debe tener rol `ROLE_TECNICO`.
 
-| CP | Qué verifica | Prioridad |
-|----|-------------|-----------|
-| CP001 | Crear ticket → ID único + estado 'abierto' | Alta |
-| CP002 | Clasificación automática por categoría | Alta |
-| CP003 | Asignación automática al técnico con menor carga | Alta |
-| CP004 | Cambio de estado por técnico válido | Alta |
-| CP007 | Login con credenciales válidas → JWT retornado | Alta |
-| CP008 | Bloqueo tras 5 intentos fallidos | Alta |
-| CP010 | Alerta SLA al 80% | Alta |
-| CP005 | Reapertura de ticket resuelto | Media |
-| CP006 | Notificación al asignar ticket (≤5 min) | Media |
-| CP009 | Dashboard diferenciado por rol | Media |
-| CP011 | Admin crea usuario → email enviado | Media |
-| CP012 | Cierre de ticket resuelto | Media |
+## Reglas de trabajo
 
----
+- Commits con Conventional Commits, en español, en la rama propia del trabajo (ahora `feat/domain-service-java`). Sin push si no se pide.
+- Al preparar un commit, usar `git add -- <rutas>` y `git commit -- <rutas>` con rutas concretas. Nunca `-A`, `.` ni `-a`: el árbol de trabajo puede traer cambios ajenos a la tarea; revisa `git status` antes de cada commit e incluye solo lo tuyo.
+- Secretos solo por variables de entorno o por `/etc/domain-service.env` (permisos 600, fuera del repositorio). Sin contraseñas, IPs públicas, IDs de cuenta ni endpoints reales en ningún archivo versionado; usar marcadores como `<IP_EC2>`, `<ENDPOINT_RDS>`, `<CLAVE>`.
+- No modificar el AuthCore desplegado ni la infraestructura AWS sin confirmarlo con el dueño. Los agentes no tienen acceso a AWS y no deben intentarlo.
+- Las pruebas deben quedar en verde (`mvn verify`) antes de cada commit de código.
+- No modificar archivos fuera del alcance de la tarea.
 
-## Credenciales seeder
+## Flujo de trabajo con Claude Code
 
-```
-admin@empresa.com     / Admin123!       (administrador)
-tecnico1@empresa.com  / Tecnico123!     (tecnico)
-tecnico2@empresa.com  / Tecnico123!     (tecnico)
-usuario1@empresa.com  / Usuario123!     (usuario)
-```
+1. Elige **una** tarea de `PENDIENTES.md` (sección 3) y crea su rama (`feat/<nombre>`, `fix/<nombre>` o `docs/<nombre>`) desde `main` actualizado; mientras el PR #7 siga abierto, desde `feat/domain-service-java`.
+2. Escribe primero la prueba que falla y después el código. Si `ArquitecturaHexagonalTest` falla, el diseño rompe las capas: corrige el diseño, no la prueba.
+3. `mvn verify` en verde antes de cada commit de código. Si `mvn` o `java` no están instalados (`mvn -v`), dilo: no declares la tarea terminada sin haberlas ejecutado.
+4. Si cambias una regla de negocio, actualiza en el mismo PR la sección "Reglas de negocio" de este archivo y el README del servicio.
+5. Al terminar: marca la tarea en `PENDIENTES.md`, haz commit con rutas concretas y **pregunta antes de hacer push o abrir el PR**.
+
+### Pide confirmación al usuario antes de
+
+- Ejecutar la limpieza de `LIMPIEZA_REPO.md` o borrar carpetas, ramas o etiquetas.
+- Tocar el AuthCore desplegado, la EC2, el RDS o cualquier recurso de AWS.
+- Cambiar una regla de negocio ya confirmada (p. ej. M-08 y M-09 de `PENDIENTES.md`) o el contrato REST.
+- Hacer push, abrir o mezclar un PR, o reescribir historial (`--force`, `rebase`, `reset --hard`).
+- Manejar secretos: no los pidas, no los imprimas y no los escribas en archivos; usa marcadores como `<CLAVE>`.
+
+### Entorno
+
+- Windows: si `clone` o `checkout` fallan con "Filename too long", `git config core.longpaths true`. JDK 17 y Maven 3.9+ deben estar en el `PATH`.
+- Las variables de entorno se definen distinto en Bash (`export X=...`) y en PowerShell (`$env:X = '...'`).

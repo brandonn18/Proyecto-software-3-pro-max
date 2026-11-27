@@ -1,4 +1,6 @@
 # Reporte de Cobertura de Pruebas
+
+> **Documento histórico.** Mide el monolito Node (`backend/`), reemplazado. Las pruebas del entregable vigente son las de `domain-service-java/` (`mvn verify`). Ver [`PENDIENTES.md`](PENDIENTES.md).
 ## Sistema de Gestión de Tickets TI — Ingeniería de Software II
 
 **Fecha de generación:** 2026-06-16  
