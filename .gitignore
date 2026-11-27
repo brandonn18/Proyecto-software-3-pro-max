@@ -12,7 +12,6 @@ node_modules/
 .env.production.local
 
 # Build de React
-/tickets-ti/frontend/build/
 
 # Cobertura de tests
 coverage/
