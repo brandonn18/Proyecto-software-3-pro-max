@@ -3,6 +3,8 @@ package com.ticketsti.soporte.contract;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.ticketsti.soporte.application.query.FiltroTicket;
+import com.ticketsti.soporte.application.query.Pagina;
+import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.*;
 import com.ticketsti.soporte.domain.vo.Categoria;
@@ -191,6 +193,29 @@ public abstract class TicketRepositoryContractTest {
 
         assertEquals(List.of("TKT-2026-0002", "TKT-2026-0005", "TKT-2026-0001"),
                 repo().buscarVigentesSinSlaVencido().stream().map(Ticket::getCodigo).toList());
+    }
+
+    @Test
+    void buscaPorPaginasConElTotal() {
+        for (int i = 1; i <= 5; i++) {
+            guardar(String.format("TKT-2026-%04d", i), i % 2 == 0 ? "jose" : "maria", i <= 3 ? Prioridad.ALTA : Prioridad.BAJA,
+                    "hardware", i);
+        }
+        FiltroTicket todos = filtro(null, null, null, null, null);
+        assertEquals(new Pagina<>(List.of("TKT-2026-0005", "TKT-2026-0004"), 5), codigos(todos, new Paginacion(0, 2)));
+        assertEquals(new Pagina<>(List.of("TKT-2026-0003", "TKT-2026-0002"), 5), codigos(todos, new Paginacion(1, 2)));
+        assertEquals(new Pagina<>(List.of("TKT-2026-0001"), 5), codigos(todos, new Paginacion(2, 2)));
+        assertEquals(new Pagina<>(List.of(), 5), codigos(todos, new Paginacion(3, 2)), "fuera de rango: vacía, con el total");
+
+        // el total respeta los filtros y la visibilidad, que se aplican antes de paginar
+        assertEquals(new Pagina<>(List.of("TKT-2026-0003"), 3), codigos(filtro(null, Prioridad.ALTA, null, null, null), new Paginacion(0, 1)));
+        assertEquals(new Pagina<>(List.of("TKT-2026-0005", "TKT-2026-0003", "TKT-2026-0001"), 3),
+                codigos(filtro(null, null, null, "maria", null), new Paginacion(0, 10)));
+    }
+
+    private Pagina<String> codigos(FiltroTicket f, Paginacion p) {
+        Pagina<Ticket> pagina = repo().buscar(f, p);
+        return new Pagina<>(pagina.elementos().stream().map(Ticket::getCodigo).toList(), pagina.total());
     }
 
     private List<String> codigos(FiltroTicket f) {

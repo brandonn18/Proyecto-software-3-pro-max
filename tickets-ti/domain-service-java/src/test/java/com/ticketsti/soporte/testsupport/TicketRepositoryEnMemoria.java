@@ -1,6 +1,8 @@
 package com.ticketsti.soporte.testsupport;
 
 import com.ticketsti.soporte.application.query.FiltroTicket;
+import com.ticketsti.soporte.application.query.Pagina;
+import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.domain.vo.Categoria;
@@ -67,6 +69,14 @@ public class TicketRepositoryEnMemoria implements TicketRepositoryPort {
         }
         r.sort(Comparator.comparing(Ticket::getCreadoEn).thenComparing(Ticket::getId).reversed());
         return r;
+    }
+
+    @Override
+    public Pagina<Ticket> buscar(FiltroTicket f, Paginacion p) {
+        List<Ticket> todos = buscar(f);
+        int desde = (int) Math.min(p.desde(), todos.size());
+        int hasta = (int) Math.min(p.desde() + p.tamano(), todos.size());
+        return new Pagina<>(todos.subList(desde, hasta), todos.size());
     }
 
     @Override
