@@ -33,11 +33,17 @@ public class TicketRepositoryEnMemoria implements TicketRepositoryPort {
         return filas.values().stream().filter(t -> t.getCodigo().equals(codigo)).findFirst().map(t -> copiar(t.getId(), t));
     }
 
+    /** Último reservado por año: igual que el contador del adaptador JPA, no repite aunque el ticket no se haya guardado aún. */
+    private final Map<Integer, Long> reservados = new HashMap<>();
+
     @Override
     public long siguienteConsecutivo(int anio) {
         String prefijo = "TKT-" + anio + "-";
-        return filas.values().stream().map(Ticket::getCodigo).filter(c -> c.startsWith(prefijo))
-                .mapToLong(c -> Long.parseLong(c.substring(prefijo.length()))).max().orElse(0) + 1;
+        long maximoUsado = filas.values().stream().map(Ticket::getCodigo).filter(c -> c.startsWith(prefijo))
+                .mapToLong(c -> Long.parseLong(c.substring(prefijo.length()))).max().orElse(0);
+        long siguiente = Math.max(reservados.getOrDefault(anio, 0L), maximoUsado) + 1;
+        reservados.put(anio, siguiente);
+        return siguiente;
     }
 
     @Override

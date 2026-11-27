@@ -7,8 +7,10 @@ import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.domain.model.EstadoTicket;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.domain.vo.Categoria;
+import com.ticketsti.soporte.infrastructure.adapters.out.persistence.entity.ContadorTicketEntity;
 import com.ticketsti.soporte.infrastructure.adapters.out.persistence.entity.TicketEntity;
 import com.ticketsti.soporte.infrastructure.adapters.out.persistence.mapper.TicketMapper;
+import com.ticketsti.soporte.infrastructure.adapters.out.persistence.repository.ContadorTicketJpaRepository;
 import com.ticketsti.soporte.infrastructure.adapters.out.persistence.repository.TicketJpaRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -22,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
@@ -30,10 +33,15 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
 
     private static final List<String> ESTADOS_VIGENTES = EstadoTicket.vigentes().stream().map(Enum::name).toList();
 
-    private final TicketJpaRepository jpa;
+    /** Fila fija de {@code contador_ticket} (creada por V3) que sirve de candado para crear el contador de un año nuevo. */
+    static final int CANDADO_ANIO_NUEVO = 0;
 
-    public TicketRepositoryAdapter(TicketJpaRepository jpa) {
+    private final TicketJpaRepository jpa;
+    private final ContadorTicketJpaRepository contadores;
+
+    public TicketRepositoryAdapter(TicketJpaRepository jpa, ContadorTicketJpaRepository contadores) {
         this.jpa = jpa;
+        this.contadores = contadores;
     }
 
     @Override
@@ -51,10 +59,40 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
         return jpa.findByCodigo(codigo).map(TicketMapper::aDominio);
     }
 
+    /**
+     * M-06: reserva el siguiente consecutivo del año. Bloquea la fila del año en {@code contador_ticket}
+     * (SELECT ... FOR UPDATE) hasta que termina la transacción que crea el ticket: las creaciones simultáneas del mismo
+     * año esperan su turno en lugar de chocar, y si esa transacción se revierte el número no se consume.
+     * Toma el mayor entre el contador y el máximo ya usado, así nunca repite un número aunque haya tickets que no pasaron
+     * por el contador. Exige una transacción en curso: sin ella, el bloqueo no protegería nada.
+     */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.MANDATORY)
     public long siguienteConsecutivo(int anio) {
-        return jpa.maxConsecutivo(anio) + 1;
+        // Se mira primero sin bloquear: en MySQL, bloquear una fila que no existe toma un «gap lock» y varias
+        // creaciones del primer ticket del año se trabarían entre sí al insertarla.
+        Optional<ContadorTicketEntity> delAnio = contadores.existsById(anio) ? contadores.bloquear(anio) : Optional.empty();
+        ContadorTicketEntity contador = delAnio.orElseGet(() -> crearContador(anio));
+        long siguiente = Math.max(contador.getUltimo(), jpa.maxConsecutivo(anio)) + 1;
+        contador.setUltimo(siguiente);       // se escribe con el ticket, en la misma transacción
+        return siguiente;
+    }
+
+    /**
+     * Primer ticket del año: con el candado tomado, nadie más crea contadores, así que el que llega primero inserta la
+     * fila y los demás, al tomar el candado después, ya la encuentran. Todo en la misma transacción: no pide otra
+     * conexión (con muchas creaciones a la vez, eso agotaba el pool) y los bloqueos siempre van en el mismo orden
+     * (candado y después año), así que no se producen interbloqueos.
+     */
+    private ContadorTicketEntity crearContador(int anio) {
+        contadores.bloquear(CANDADO_ANIO_NUEVO)
+                .orElseThrow(() -> new IllegalStateException("Falta la fila candado de contador_ticket (migración V3)"));
+        // Lectura con bloqueo: ve lo último confirmado, aunque otra creación la haya insertado recién.
+        return contadores.bloquear(anio).orElseGet(() -> {
+            contadores.insertar(anio, 0);
+            return contadores.bloquear(anio)
+                    .orElseThrow(() -> new IllegalStateException("No se pudo crear el contador del año " + anio));
+        });
     }
 
     @Override

@@ -16,7 +16,11 @@ public interface TicketRepositoryPort {
 
     Optional<Ticket> buscarPorCodigo(String codigo);
 
-    /** El siguiente consecutivo del año (el primero es 1). */
+    /**
+     * Reserva el siguiente consecutivo del año (el primero es 1) para la transacción en curso. M-06: dos creaciones
+     * simultáneas nunca reciben el mismo número, y nunca se repite uno ya usado. Si la transacción se revierte, el número
+     * no se consume.
+     */
     long siguienteConsecutivo(int anio);
 
     /** Cuántos tickets vigentes (no resueltos ni cerrados) tiene cada técnico en esa categoría; los que no tienen, no aparecen. */
