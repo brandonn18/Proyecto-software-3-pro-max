@@ -6,6 +6,8 @@ import com.ticketsti.soporte.application.notificacion.Notificacion;
 import com.ticketsti.soporte.application.port.in.TicketUseCase;
 import com.ticketsti.soporte.application.port.in.command.*;
 import com.ticketsti.soporte.application.query.FiltroTicket;
+import com.ticketsti.soporte.application.query.Pagina;
+import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.application.port.out.NotificacionPort;
 import com.ticketsti.soporte.application.port.out.TecnicoRepositoryPort;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
@@ -128,12 +130,22 @@ public class TicketService implements TicketUseCase {
 
     @Override
     public List<Ticket> consultar(Actor actor, ConsultarTicketsQuery q) {
+        return tickets.buscar(filtro(actor, q));
+    }
+
+    @Override
+    public Pagina<Ticket> consultarPagina(Actor actor, ConsultarTicketsQuery q, Paginacion paginacion) {
+        return tickets.buscar(filtro(actor, q), paginacion);
+    }
+
+    /** Los filtros pedidos más la visibilidad del rol: se aplican antes de paginar, así el total solo cuenta lo visible. */
+    private FiltroTicket filtro(Actor actor, ConsultarTicketsQuery q) {
         EstadoTicket estado = q.estado() == null || q.estado().isBlank() ? null : EstadoTicket.de(q.estado());
         Prioridad prioridad = q.prioridad() == null || q.prioridad().isBlank() ? null : Prioridad.de(q.prioridad());
         TipoTicket tipo = q.tipo() == null || q.tipo().isBlank() ? null : TipoTicket.de(q.tipo());
         Categoria categoria = q.categoria() == null || q.categoria().isBlank() ? null : Categoria.de(q.categoria());
         PoliticaAcceso.Visibilidad alcance = acceso.visibilidadPara(actor);
-        return tickets.buscar(new FiltroTicket(estado, prioridad, categoria, tipo, alcance.creadoPor(), alcance.asignadoA()));
+        return new FiltroTicket(estado, prioridad, categoria, tipo, alcance.creadoPor(), alcance.asignadoA());
     }
 
     private Ticket cargar(String codigo) {

@@ -37,7 +37,7 @@ puerto `TransaccionPort`; el reloj se inyecta (`Clock`); los permisos viven en `
 | HU-9 | Cambiar estado con ciclo e historial | `EstadoTicket.siguientes`, `Ticket.cambiarEstado`, `PATCH /api/tickets/{codigo}/status` |
 | HU-10 | Reabrir con motivo y SLA reiniciado | `Ticket.reabrir`, `POST /api/tickets/{codigo}/reopen` |
 | HU-11 | Reasignar | `Ticket.asignarA`, `POST /api/tickets/{codigo}/assign` |
-| HU-12 | Consultar según rol, con filtros | `TicketService.consultar`, `GET /api/tickets`, `GET /api/tickets/{codigo}` |
+| HU-12 | Consultar según rol, con filtros y, opcionalmente, por páginas (M-05) | `TicketService.consultar` / `consultarPagina`, `GET /api/tickets?page=&size=`, `GET /api/tickets/{codigo}` |
 | RF-09 (M-01) | Alerta de SLA al 80 % y marcado de vencidos | `Ticket.verificarSla`, `VerificacionSlaService`, `VerificacionSlaProgramada` (`@Scheduled`) |
 | RF-10 (M-02) | Avisos de creación, asignación, resolución y SLA | `NotificacionPort`, `Notificacion`, `NotificacionRegistroAdapter` (log) |
 | RF-12 (M-03) | Reportes para el ADMIN: resumen, cumplimiento de SLA, desempeño por técnico | `ReporteService`, `ReporteQueryPort` → `ReporteJpaAdapter`, `MedicionSla`, `GET /api/reportes/{resumen,sla,tecnicos}` |
@@ -70,6 +70,7 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
 - Asignación: entre los técnicos de la categoría, el de menos tickets vigentes **en esa categoría**; empate → menor nombre. Sin técnicos → `ABIERTO` sin técnico.
 - Ciclo: `asignado → en_proceso ⇄ en_espera`, `en_proceso → resuelto → cerrado`. `abierto → asignado` solo asignando un técnico.
 - Cambia el estado el técnico asignado o el ADMIN; reabre el dueño o el ADMIN; reasigna solo el ADMIN; ve un ticket su creador, su técnico y el ADMIN.
+- Consulta por páginas: `GET /api/tickets?page=0&size=20`. `page` empieza en 0 y `size` va de 1 a 100 (20 si se omite). Sin `page` ni `size` devuelve la lista completa, como antes. La cabecera `X-Total-Count` trae siempre el total que cumple los filtros y la visibilidad. Una página fuera de rango devuelve `[]` con ese total.
 - Reabrir: vuelve a `ABIERTO`, sin técnico, con SLA reiniciado (4 h crítica, 8 h alta, 24 h media, 72 h baja).
 - Alerta de SLA: cada minuto (`negocio.sla.intervalo-verificacion`, formato ISO-8601) se revisan los tickets vigentes. Al 80 % del plazo se registra una alerta y al 100 % se marca vencido, cada una una sola vez por SLA y como línea del historial (`por: sistema`), sin cambiar estado ni técnico. Reabrir reinicia ambas marcas. Columnas nuevas en `ticket`: `alerta_sla_en` y `sla_vencido_en`, que admiten null; las agrega la migración `V2__marcas_sla` sin tocar los datos.
 - Notificaciones: se avisa al crear, al asignar o reasignar, al resolver y en las alertas y vencimientos de SLA. El aviso sale después de guardar; si el canal falla, la operación no se deshace. Canal actual: una línea de log por aviso (en la EC2, `journalctl -u domain-service`), sin saltos de línea del texto del usuario.

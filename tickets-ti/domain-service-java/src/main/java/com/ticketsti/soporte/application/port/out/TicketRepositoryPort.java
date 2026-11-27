@@ -1,6 +1,8 @@
 package com.ticketsti.soporte.application.port.out;
 
 import com.ticketsti.soporte.application.query.FiltroTicket;
+import com.ticketsti.soporte.application.query.Pagina;
+import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.domain.vo.Categoria;
 import java.util.Collection;
@@ -22,6 +24,9 @@ public interface TicketRepositoryPort {
 
     /** Más recientes primero. */
     List<Ticket> buscar(FiltroTicket filtro);
+
+    /** M-05: una página de {@link #buscar(FiltroTicket)}, en el mismo orden, con el total de lo que cumple el filtro. */
+    Pagina<Ticket> buscar(FiltroTicket filtro, Paginacion paginacion);
 
     /** Tickets vigentes que todavía no se marcaron como vencidos (M-01), el que vence antes primero. */
     List<Ticket> buscarVigentesSinSlaVencido();

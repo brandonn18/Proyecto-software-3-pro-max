@@ -2,7 +2,10 @@ package com.ticketsti.soporte.infrastructure.adapters.in.rest;
 
 import com.ticketsti.soporte.application.port.in.TicketUseCase;
 import com.ticketsti.soporte.application.port.in.command.*;
+import com.ticketsti.soporte.application.query.Pagina;
+import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.domain.exception.ValorInvalidoException;
+import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.infrastructure.adapters.in.rest.dto.*;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
@@ -29,21 +32,36 @@ public class TicketController {
         return ResponseEntity.created(URI.create("/api/tickets/" + t.getCodigo())).body(TicketResponse.de(t));
     }
 
-    private static final Set<String> FILTROS = Set.of("estado", "prioridad", "categoria", "tipo");
+    private static final Set<String> PARAMETROS = Set.of("estado", "prioridad", "categoria", "tipo", "page", "size");
 
+    /** M-05: cuántos tickets cumplen la consulta en total, antes de cortar en páginas. Va en toda respuesta de la lista. */
+    static final String TOTAL = "X-Total-Count";
+
+    /**
+     * Sin {@code page} ni {@code size} devuelve la lista completa, como antes de M-05. Con cualquiera de los dos, una
+     * página ({@code page} desde 0; {@code size} de 1 a 100, 20 por defecto). En ambos casos, el total va en {@value #TOTAL}.
+     */
     @GetMapping
-    public List<TicketResponse> consultar(HttpServletRequest peticion,
-                                          @RequestParam(required = false) String estado,
-                                          @RequestParam(required = false) String prioridad,
-                                          @RequestParam(required = false) String categoria,
-                                          @RequestParam(required = false) String tipo) {
+    public ResponseEntity<List<TicketResponse>> consultar(HttpServletRequest peticion,
+                                                          @RequestParam(required = false) String estado,
+                                                          @RequestParam(required = false) String prioridad,
+                                                          @RequestParam(required = false) String categoria,
+                                                          @RequestParam(required = false) String tipo,
+                                                          @RequestParam(required = false) Integer page,
+                                                          @RequestParam(required = false) Integer size) {
         for (String nombre : peticion.getParameterMap().keySet()) {
-            if (!FILTROS.contains(nombre)) {
-                throw new ValorInvalidoException("Filtro desconocido: '" + nombre + "' (use estado, prioridad, categoria o tipo)");
+            if (!PARAMETROS.contains(nombre)) {
+                throw new ValorInvalidoException("Parámetro desconocido: '" + nombre
+                        + "' (use estado, prioridad, categoria, tipo, page o size)");
             }
         }
-        return tickets.consultar(ActorActual.obtener(), new ConsultarTicketsQuery(estado, prioridad, categoria, tipo))
-                .stream().map(TicketResponse::de).toList();
+        var consulta = new ConsultarTicketsQuery(estado, prioridad, categoria, tipo);
+        Pagina<Ticket> resultado = page == null && size == null
+                ? Pagina.completa(tickets.consultar(ActorActual.obtener(), consulta))
+                : tickets.consultarPagina(ActorActual.obtener(), consulta, Paginacion.de(page, size));
+        return ResponseEntity.ok()
+                .header(TOTAL, String.valueOf(resultado.total()))
+                .body(resultado.map(TicketResponse::de).elementos());
     }
 
     @GetMapping("/{codigo}")

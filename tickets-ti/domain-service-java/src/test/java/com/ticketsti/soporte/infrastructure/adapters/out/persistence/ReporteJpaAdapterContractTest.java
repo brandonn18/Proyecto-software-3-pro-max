@@ -3,6 +3,8 @@ package com.ticketsti.soporte.infrastructure.adapters.out.persistence;
 import com.ticketsti.soporte.application.port.out.ReporteQueryPort;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.application.query.FiltroTicket;
+import com.ticketsti.soporte.application.query.Pagina;
+import com.ticketsti.soporte.application.query.Paginacion;
 import com.ticketsti.soporte.contract.ReporteQueryContractTest;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.domain.vo.Categoria;
@@ -37,6 +39,7 @@ class ReporteJpaAdapterContractTest extends ReporteQueryContractTest {
             public long siguienteConsecutivo(int anio) { return ticketsJpa.siguienteConsecutivo(anio); }
             public Map<String, Long> contarVigentesPorTecnico(Categoria c, Collection<String> u) { return ticketsJpa.contarVigentesPorTecnico(c, u); }
             public List<Ticket> buscar(FiltroTicket f) { return ticketsJpa.buscar(f); }
+            public Pagina<Ticket> buscar(FiltroTicket f, Paginacion p) { return ticketsJpa.buscar(f, p); }
             public List<Ticket> buscarVigentesSinSlaVencido() { return ticketsJpa.buscarVigentesSinSlaVencido(); }
         };
     }
