@@ -56,6 +56,12 @@ mvn spring-boot:run         # REST en http://localhost:8082 (H2 en memoria)
 > Nota (Windows): si `git clone` falla con "Filename too long", ejecuta `git config --system core.longpaths true` o clona con `git clone -c core.longpaths=true`.
 
 Producción: perfil `prod` con `DB_URL`, `DB_USER`, `DB_PASSWORD` como variables de entorno y, opcional, `PORT`. Despliegue en la EC2: [deploy/DESPLIEGUE.md](deploy/DESPLIEGUE.md).
+
+Esquema de la base (M-04): lo crean las migraciones de Flyway en `src/main/resources/db/migration/{h2,mysql}`, una carpeta
+por base porque los tipos de fecha difieren. Hibernate solo valida (`ddl-auto: validate`): si una entidad cambia sin su
+migración, el servicio no arranca y las pruebas fallan. Un cambio de esquema se hace con un archivo nuevo `V<n>__<descripción>.sql`
+en las dos carpetas, nunca editando uno ya aplicado. La primera vez sobre una base que ya tiene tablas (la de la EC2) hay que
+adoptarla con un *baseline*: [DESPLIEGUE.md, paso 10](deploy/DESPLIEGUE.md#10-migraciones-de-la-base-flyway-m-04).
 Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde en el repositorio).
 
 ## Reglas de negocio clave
@@ -65,7 +71,7 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
 - Ciclo: `asignado → en_proceso ⇄ en_espera`, `en_proceso → resuelto → cerrado`. `abierto → asignado` solo asignando un técnico.
 - Cambia el estado el técnico asignado o el ADMIN; reabre el dueño o el ADMIN; reasigna solo el ADMIN; ve un ticket su creador, su técnico y el ADMIN.
 - Reabrir: vuelve a `ABIERTO`, sin técnico, con SLA reiniciado (4 h crítica, 8 h alta, 24 h media, 72 h baja).
-- Alerta de SLA: cada minuto (`negocio.sla.intervalo-verificacion`, formato ISO-8601) se revisan los tickets vigentes. Al 80 % del plazo se registra una alerta y al 100 % se marca vencido, cada una una sola vez por SLA y como línea del historial (`por: sistema`), sin cambiar estado ni técnico. Reabrir reinicia ambas marcas. Columnas nuevas en `ticket`: `alerta_sla_en` y `sla_vencido_en`; admiten null, así que `ddl-auto: update` las agrega sin tocar los datos.
+- Alerta de SLA: cada minuto (`negocio.sla.intervalo-verificacion`, formato ISO-8601) se revisan los tickets vigentes. Al 80 % del plazo se registra una alerta y al 100 % se marca vencido, cada una una sola vez por SLA y como línea del historial (`por: sistema`), sin cambiar estado ni técnico. Reabrir reinicia ambas marcas. Columnas nuevas en `ticket`: `alerta_sla_en` y `sla_vencido_en`, que admiten null; las agrega la migración `V2__marcas_sla` sin tocar los datos.
 - Notificaciones: se avisa al crear, al asignar o reasignar, al resolver y en las alertas y vencimientos de SLA. El aviso sale después de guardar; si el canal falla, la operación no se deshace. Canal actual: una línea de log por aviso (en la EC2, `journalctl -u domain-service`), sin saltos de línea del texto del usuario.
 - Reportes (solo ADMIN; USER y TECNICO reciben 403):
   - `GET /api/reportes/resumen`: totales por estado, prioridad y categoría; vigentes, sin asignar y vencidos sin resolver.

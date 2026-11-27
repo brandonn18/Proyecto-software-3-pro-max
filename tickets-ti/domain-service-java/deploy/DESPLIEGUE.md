@@ -241,6 +241,72 @@ Si ya hay otros técnicos de `hardware` con menos carga, el ticket puede quedar 
 | `Connection refused` (ECONNREFUSED) | El servicio está detenido o no arrancó | `systemctl status domain-service`; `journalctl -u domain-service`. Si el log dice `Falta JWT_SECRET_BASE64`, revisa `/etc/domain-service.env`. |
 | Timeout desde tu equipo | El Security Group no permite tu IP o tu IP cambió | Paso 6: el origen debe ser tu IP actual con `/32`. |
 | El servicio arranca y se cae al conectar a la base | `DB_URL`, usuario, clave o permisos del RDS | `GRANT` del paso 3; Security Group del RDS; puerto 3306. |
+| No arranca: `Found non-empty schema(s) ... but no schema history table` | Primera vez con Flyway sobre una base que ya tiene tablas | Paso 10. No se modificó nada. |
+| No arranca: `Duplicate column name 'alerta_sla_en'` | Se adoptó con versión 1 una base que ya tenía las columnas de M-01 | Paso 10, «Si te equivocaste de versión». |
+| No arranca: `Schema-validation: missing column` (o `missing table`) | Falta una migración para un cambio de las entidades | Revisa `db/migration/mysql`; ninguna migración debe editarse después de aplicada. |
+
+## 10. Migraciones de la base (Flyway, M-04)
+
+Desde M-04, el esquema lo crean las migraciones de `src/main/resources/db/migration/mysql` y Hibernate solo comprueba al
+arrancar que coincida (`ddl-auto: validate`); ya no crea ni altera tablas.
+
+- **Base vacía** (una instalación nueva): no hay que hacer nada. Al arrancar, Flyway crea todo y queda en la última versión.
+- **Base que ya tiene tablas** (la de la EC2, creada antes con `ddl-auto: update`): el servicio **no arranca** y **no toca nada**
+  hasta que se adopte la base. El log dice `Found non-empty schema(s) ... but no schema history table`.
+
+La adopción se hace **una sola vez**, coordinada con el dueño de la EC2 y del RDS:
+
+1. Respaldo de la base (el archivo tiene datos reales: no se versiona ni se comparte, y se borra cuando ya no haga falta):
+
+   ```bash
+   mysqldump -h <ENDPOINT_RDS> -u admin -p --single-transaction --no-tablespaces tickets > tickets-antes-de-flyway.sql
+   ```
+
+2. Ver en qué versión está la base, es decir, si ya tiene las columnas de M-01:
+
+   ```sql
+   SELECT COUNT(*) FROM information_schema.COLUMNS
+   WHERE TABLE_SCHEMA = 'tickets' AND TABLE_NAME = 'ticket' AND COLUMN_NAME IN ('alerta_sla_en', 'sla_vencido_en');
+   ```
+
+   `0` = versión 1 (lo desplegado antes de M-01). `2` = versión 2 (ya se desplegó M-01 con `ddl-auto: update`).
+
+3. Agregar **temporalmente** a `/etc/domain-service.env` (con `sudo nano`), poniendo la versión del paso anterior:
+
+   ```
+   SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
+   SPRING_FLYWAY_BASELINE_VERSION=1
+   ```
+
+4. Copiar el jar nuevo (paso 2) y reiniciar con `sudo systemctl restart domain-service`. En `journalctl -u domain-service`
+   debe aparecer `Successfully baselined schema with version: 1` y, si era la versión 1,
+   ``Successfully applied 1 migration to schema `tickets`, now at version v2``.
+
+5. Verificar el historial y repetir la prueba de punta a punta (paso 8):
+
+   ```sql
+   SELECT version, description, type, success FROM tickets.flyway_schema_history ORDER BY installed_rank;
+   ```
+
+   Versión 1: dos filas, `BASELINE` (1) y `SQL` (2, `marcas sla`), ambas con `success` = 1. Versión 2: una fila, `BASELINE` (2).
+
+6. Quitar las dos líneas del env y reiniciar otra vez. El log debe decir ``Schema `tickets` is up to date``: desde ahora cada
+   despliegue aplica solo las migraciones nuevas, sin variables extra.
+
+**Si te equivocaste de versión** (versión 1 sobre una base que ya tenía las columnas): el log dice
+`Duplicate column name 'alerta_sla_en'` y el servicio no arranca. Esa sentencia falla entera, así que la tabla no cambió.
+Borra el historial a medio hacer con `DROP TABLE tickets.flyway_schema_history;` y repite desde el paso 3 con versión `2`.
+
+Procedimiento probado el 2026-11-26 contra MySQL 8.0.46, con una base creada (y con datos) por la versión desplegada antes de M-01:
+
+- sin las variables, no arranca y no toca nada;
+- con versión 1, aplica V2 y conserva los datos, y los reportes funcionan;
+- el segundo arranque no necesita las variables;
+- una base vacía queda en V2;
+- una base con las columnas de M-01 falla con versión 1 y se recupera como se indica arriba.
+
+**Cambios de esquema futuros:** nunca se edita una migración ya aplicada. Se agrega `V3__<descripción>.sql`, y así
+sucesivamente, en `db/migration/mysql` y en `db/migration/h2` con el mismo número (`MigracionesTest` exige que coincidan).
 
 ## Capturas y compartir evidencias
 
