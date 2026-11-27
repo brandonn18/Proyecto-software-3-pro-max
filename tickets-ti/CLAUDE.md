@@ -37,6 +37,7 @@ Históricas (no son fuente de verdad del estado actual):
 - `mvn -DskipTests package`: genera `target/domain-service-tickets-0.1.0-SNAPSHOT.jar`.
 - Desarrollo: `export JWT_SECRET_BASE64=<CLAVE_COMPARTIDA>` y luego `mvn spring-boot:run`. Escucha en `http://localhost:8082` con H2 en memoria.
 - Producción: `SPRING_PROFILES_ACTIVE=prod` más `DB_URL`, `DB_USER`, `DB_PASSWORD` (y `PORT`, opcional: define `server.port`, por defecto 8082).
+- Esquema (M-04): lo crean las migraciones Flyway de `src/main/resources/db/migration/{h2,mysql}` y Hibernate solo valida (`ddl-auto: validate`). La primera vez sobre una base con tablas pero sin historial de Flyway (la de la EC2), el servicio no arranca hasta adoptarla con un baseline: `deploy/DESPLIEGUE.md`, paso 10. Esa adopción la hace el dueño.
 - Salud: `GET /api/health` (público, sin token; responde 200 `{"status":"UP"}`).
 
 ## Arquitectura y reglas de dependencia
@@ -85,6 +86,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 - Secretos solo por variables de entorno o por `/etc/domain-service.env` (permisos 600, fuera del repositorio). Sin contraseñas, IPs públicas, IDs de cuenta ni endpoints reales en ningún archivo versionado; usar marcadores como `<IP_EC2>`, `<ENDPOINT_RDS>`, `<CLAVE>`.
 - No modificar el AuthCore desplegado ni la infraestructura AWS sin confirmarlo con el dueño. Los agentes no tienen acceso a AWS y no deben intentarlo.
 - Las pruebas deben quedar en verde (`mvn verify`) antes de cada commit de código.
+- Cambios de esquema: una migración nueva `V<n>__<descripción>.sql` en `db/migration/mysql` y en `db/migration/h2`, con el mismo número (`MigracionesTest` lo exige). Nunca se edita una migración ya aplicada. El SQL de cada base se puede generar con Hibernate: `jakarta.persistence.schema-generation.scripts.*` con el dialecto de esa base.
 - No modificar archivos fuera del alcance de la tarea.
 
 ## Flujo de trabajo con Claude Code
