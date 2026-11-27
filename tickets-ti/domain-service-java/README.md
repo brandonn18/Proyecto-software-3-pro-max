@@ -6,8 +6,8 @@ SLA por prioridad y consulta según el rol.
 
 Paquete base: `com.ticketsti.soporte` · Java 17 · Spring Boot 3.5.6 · Maven · H2 (dev) / MySQL (prod) · JUnit 5.
 
-> El grupo construyó su propia versión del domain service en Node.js. Este proyecto es el **material de clase** con el
-> estándar del curso (Java/Spring), para comparar la misma arquitectura hexagonal con otra tecnología.
+> Este proyecto parte del **material de clase** del curso (Java/Spring), corregido y ampliado por el grupo. La versión
+> anterior del grupo, en Node.js, se retiró del repositorio el 2026-11-26 y queda en la etiqueta `archivo/pre-limpieza-2026-11`.
 
 ## Estado honesto
 

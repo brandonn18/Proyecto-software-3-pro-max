@@ -23,13 +23,9 @@ Entregable vigente:
 - `domain-service-java/`: servicio de dominio Java. Incluye `deploy/` (unidad systemd, ejemplo de variables y runbook de despliegue).
 - `authcore/`: AuthCore Java propio del grupo. **No es el desplegado**; el desplegado viene del Taller 2 (ver integración).
 
-Históricas (no son fuente de verdad del estado actual):
+Documentos de trabajo: `PENDIENTES.md` (estado y hoja de ruta), `HISTORIAS_DE_USUARIO.md` (historias de RF-06 y RF-09 a RF-12), `LIMPIEZA_REPO.md` (cómo se retiró lo histórico). `docker-compose.yml`, `package.json` y `.env.example` solo sirven para levantar `authcore/` en local.
 
-- `backend/`: monolito Node/Express antiguo, reemplazado. Los documentos de la raíz (`README.md`, `COVERAGE_REPORT.md`, `MANUAL_TEST_GUIDE.md`) y `docker-compose.yml`/`nginx/` describen ese monolito.
-- `domain-service/`: versión Node del dominio (puerto 3003), anterior al servicio Java.
-- `frontend/`: React; consume el contrato Node, no el servicio Java.
-- `infra/aws/`: plantillas ECS. **No es lo desplegado.**
-- `herramientas/`: utilidades del monolito (p. ej. `migrar-monolito`).
+Código histórico: el monolito Node (`backend/`, `herramientas/`), el domain service Node (`domain-service/`), el frontend React con su nginx, las plantillas ECS (`infra/aws/`) y los `Diagramas/` de la raíz se retiraron el 2026-11-26. Quedan en la etiqueta `archivo/pre-limpieza-2026-11` y no son fuente de verdad. Para consultarlos: `git show archivo/pre-limpieza-2026-11:tickets-ti/<ruta>`.
 
 ## Comandos (desde `tickets-ti/domain-service-java/`)
 

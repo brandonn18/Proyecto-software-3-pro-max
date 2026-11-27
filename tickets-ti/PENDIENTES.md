@@ -13,7 +13,7 @@ la ruta para ordenar el repositorio está en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md
 | Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. Con M-01 (PR #8): **138 pruebas**, todas en verde. Con M-02 (PR #9): **149 pruebas**, todas en verde. Con M-03 (PR #10): **169 pruebas**, todas en verde. Con M-04 (PR #11): **171 pruebas**, todas en verde. Con M-05 (PR #12): **181 pruebas**, todas en verde. Con M-06 (PR #13): **184 pruebas**, todas en verde. Con M-07 (PR #14): **192 pruebas**, todas en verde. |
 | AuthCore | El que valida el servicio es el **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2). Solo expone `POST /api/auth/login`. **No está versionado en este repositorio** (ver fase B). |
 | Fuera del entregable | Frontend React (ver sección 5). Ya están hechas M-01 (alerta de SLA al 80 %), M-02 (notificaciones; por ahora el único canal es el log) y M-03 (reportes para el ADMIN). |
-| Código histórico | `backend/`, `domain-service/`, `frontend/`, `authcore/` (el del grupo), `infra/`, `herramientas/`, `nginx/`: siguen en el repositorio y deben ordenarse (sección 6). |
+| Código histórico | **Retirado el 2026-11-26 (fase C):** `backend/`, `herramientas/`, `domain-service/`, `frontend/`, `nginx/`, `infra/`, los documentos del monolito y `Diagramas/`. Queda en la etiqueta `archivo/pre-limpieza-2026-11`. Sigue `authcore/` (el del grupo), que espera la decisión 1 y la fase B. |
 
 ## 2. Cómo empezar
 
@@ -31,7 +31,7 @@ mvn verify                                # requiere JDK 17 y Maven 3.9+
 - Lectura obligatoria, en este orden: [CLAUDE.md](CLAUDE.md) → [domain-service-java/README.md](domain-service-java/README.md) →
   este archivo. Para desplegar: [domain-service-java/deploy/DESPLIEGUE.md](domain-service-java/deploy/DESPLIEGUE.md).
 - Pruebas manuales: `domain-service-java/requests.http` y la colección de Postman en `domain-service-java/deploy/postman/`.
-- Los README raíz, `COVERAGE_REPORT.md` y `MANUAL_TEST_GUIDE.md` describen el monolito Node antiguo: no son fuente de verdad.
+- El README raíz describe el estado vigente (reescrito en la limpieza). Los documentos del monolito se retiraron y quedan en la etiqueta `archivo/pre-limpieza-2026-11`.
 
 **Prompt sugerido para abrir Claude Code** (desde la raíz del repositorio):
 
@@ -86,7 +86,14 @@ El orden importa: **A** bloquea a **C**; **B** bloquea el archivado de `authcore
 
 ### C. Ordenar y limpiar el repositorio
 
-Detalle completo en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md) (resumen en la sección 6). No empezar sin cerrar A y sin las decisiones 1 y 2 de la sección 7.
+Detalle completo en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md) (resumen en la sección 6).
+
+- [x] **Hecha el 2026-11-26, PR #16**, con las decisiones 2, 3 y 5 aprobadas por el equipo y el profesor, según confirmó uno de los autores:
+  - etiqueta de respaldo `archivo/pre-limpieza-2026-11`;
+  - un commit por bloque (monolito y herramientas; domain service Node; frontend y nginx, con el compose podado; plantillas ECS; documentos del monolito; `Diagramas/`);
+  - README raíz reescrito y referencias actualizadas;
+  - 192 pruebas en verde después.
+- [ ] Retirar `authcore/` (el del grupo): solo con la decisión 1 y la fase B hechas. Hoy se conserva, con su `docker-compose.yml` podado.
 
 ### D. Mejoras del domain service
 
@@ -116,8 +123,8 @@ Ejercicios de práctica de la guía (opcionales): atributo `ubicacion` de punta 
 - [ ] Escribir las historias de usuario de los requisitos sin historia propia (RF-06, 09, 10, 11, 12): observación explícita del profesor en el Excel. **Borrador listo (2026-11-26):** [HISTORIAS_DE_USUARIO.md](HISTORIAS_DE_USUARIO.md), con cada criterio ligado a su prueba. Falta que el equipo confirme la numeración (HU-11 y HU-12; HU-13 a HU-15 propuestas, a cotejar con Trello), estime prioridad y dimensión y las pase al Excel.
 - [ ] Revisar los documentos del grupo (informes, capturas de AWS) y retirar o difuminar IP públicas e IDs de cuenta antes de compartirlos.
 - [ ] Confirmar si ya se resolvió el error de arranque del AuthCore del grupo (`UnsatisfiedDependencyException` en `securityConfig`) que el profesor vio en una captura.
-- [ ] Tras la limpieza (fase C): reescribir el `README.md` de la raíz para describir solo `domain-service-java/` y el AuthCore.
-- [ ] El README raíz cita `Ing_SoftII`, pero el remoto actual es `Proyecto-software-3-pro-max`; corregirlo en esa reescritura.
+- [x] Tras la limpieza (fase C): reescribir el `README.md` de la raíz para describir solo `domain-service-java/` y el AuthCore. Hecho el 2026-11-26.
+- [x] El README raíz cita `Ing_SoftII`, pero el remoto actual es `Proyecto-software-3-pro-max`; corregirlo en esa reescritura. Hecho el 2026-11-26.
 
 ## 4. Material que no está en el repositorio
 
@@ -141,8 +148,8 @@ Ninguna se resuelve sin confirmación. Anota aquí la respuesta y la fecha.
 | # | Decisión | Quién | Respuesta |
 |---|---|---|---|
 | 1 | ¿Se archiva `authcore/` (el del grupo)? **Ojo:** es la única implementación en el repositorio de HU-1 y HU-3 (registro y asignación de roles); el AuthCore desplegado solo hace login. | Equipo + profesor | — |
-| 2 | ¿Se archiva `domain-service/` (Node)? Las ramas `architecture/capas`, `architecture/mvc` y `architecture/oop` se hicieron sobre él. Se borraron el 2026-11-26 y quedan en las etiquetas `archivo/architecture-*` (ver `LIMPIEZA_REPO.md`). | Equipo + profesor | — |
-| 3 | ¿Se archiva `frontend/` o alguien lo adapta al contrato del servicio Java? | Equipo | — |
+| 2 | ¿Se archiva `domain-service/` (Node)? Las ramas `architecture/capas`, `architecture/mvc` y `architecture/oop` se hicieron sobre él. Se borraron el 2026-11-26 y quedan en las etiquetas `archivo/architecture-*` (ver `LIMPIEZA_REPO.md`). | Equipo + profesor | **Resuelta (2026-11-26):** se archiva. Retirado; queda en la etiqueta `archivo/pre-limpieza-2026-11`. |
+| 3 | ¿Se archiva `frontend/` o alguien lo adapta al contrato del servicio Java? | Equipo | **Resuelta (2026-11-26):** se archiva. Retirado junto con `nginx/`; queda en la etiqueta `archivo/pre-limpieza-2026-11`. |
 | 4 | ¿Qué detalles de la tabla de la fase B.6 aplica el dueño del AuthCore? | Dueño del AuthCore | — |
-| 5 | `Diagramas/` (casos de uso, clases, ER, subidos en abril de 2026). | Juan | **Resuelta (2026-11-22):** pertenecen a otra materia y nada del desarrollo actual depende de ellos. Se retiran en el PR de limpieza (fase C); hasta entonces siguen en `origin` y quedan en la etiqueta de respaldo. Falta el visto bueno de quien los subió. |
+| 5 | `Diagramas/` (casos de uso, clases, ER, subidos en abril de 2026). | Juan | **Resuelta (2026-11-22):** pertenecen a otra materia y nada del desarrollo actual depende de ellos. Se retiran en el PR de limpieza (fase C); hasta entonces siguen en `origin` y quedan en la etiqueta de respaldo. Falta el visto bueno de quien los subió. **Retirados el 2026-11-26** en el PR de limpieza. |
 | 6 | ¿Se hacen M-08 y M-09, que cambian reglas confirmadas? | Equipo + profesor | — |
