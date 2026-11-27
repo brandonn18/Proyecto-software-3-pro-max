@@ -6,6 +6,7 @@ import com.ticketsti.soporte.application.port.in.ResultadoVerificacionSla;
 import com.ticketsti.soporte.application.service.VerificacionSlaService;
 import com.ticketsti.soporte.domain.model.*;
 import com.ticketsti.soporte.testsupport.Datos;
+import com.ticketsti.soporte.testsupport.NotificacionesEnMemoria;
 import com.ticketsti.soporte.testsupport.RelojAjustable;
 import com.ticketsti.soporte.testsupport.TicketRepositoryEnMemoria;
 import com.ticketsti.soporte.testsupport.TransaccionDirecta;
@@ -98,7 +99,8 @@ class VerificacionSlaServiceTest {
         repo.guardar(Datos.ticket("TKT-2026-0001", "maria", Prioridad.ALTA));
         repo.guardar(Datos.ticket("TKT-2026-0002", "maria", Prioridad.ALTA));
         RelojAjustable reloj = Datos.relojAjustable();
-        VerificacionSlaService servicio = new VerificacionSlaService(repo, new TransaccionDirecta(), reloj);
+        VerificacionSlaService servicio = new VerificacionSlaService(repo, new TransaccionDirecta(), reloj,
+                new NotificacionesEnMemoria());
 
         reloj.avanzar(Duration.ofHours(9));
         ResultadoVerificacionSla r = servicio.verificar();
