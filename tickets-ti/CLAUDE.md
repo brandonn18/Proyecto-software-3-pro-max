@@ -84,7 +84,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 
 ## Reglas de trabajo
 
-- Commits con Conventional Commits, en español, en la rama propia del trabajo (ahora `feat/domain-service-java`). Sin push si no se pide.
+- Commits con Conventional Commits, en español, en la rama propia de cada tarea, que sale de `main`. Sin push si no se pide.
 - Al preparar un commit, usar `git add -- <rutas>` y `git commit -- <rutas>` con rutas concretas. Nunca `-A`, `.` ni `-a`: el árbol de trabajo puede traer cambios ajenos a la tarea; revisa `git status` antes de cada commit e incluye solo lo tuyo.
 - Secretos solo por variables de entorno o por `/etc/domain-service.env` (permisos 600, fuera del repositorio). Sin contraseñas, IPs públicas, IDs de cuenta ni endpoints reales en ningún archivo versionado; usar marcadores como `<IP_EC2>`, `<ENDPOINT_RDS>`, `<CLAVE>`.
 - No modificar el AuthCore desplegado ni la infraestructura AWS sin confirmarlo con el dueño. Los agentes no tienen acceso a AWS y no deben intentarlo.
@@ -94,7 +94,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 
 ## Flujo de trabajo con Claude Code
 
-1. Elige **una** tarea de `PENDIENTES.md` (sección 3) y crea su rama (`feat/<nombre>`, `fix/<nombre>` o `docs/<nombre>`) desde `main` actualizado; mientras el PR #7 siga abierto, desde `feat/domain-service-java`.
+1. Elige **una** tarea de `PENDIENTES.md` (sección 3) y crea su rama (`feat/<nombre>`, `fix/<nombre>` o `docs/<nombre>`) desde `main` actualizado. El PR #7 ya está mezclado; `feat/domain-service-java` se conserva y se adelanta hasta `main` después de cada merge.
 2. Escribe primero la prueba que falla y después el código. Si `ArquitecturaHexagonalTest` falla, el diseño rompe las capas: corrige el diseño, no la prueba.
 3. `mvn verify` en verde antes de cada commit de código. Si `mvn` o `java` no están instalados (`mvn -v`), dilo: no declares la tarea terminada sin haberlas ejecutado.
 4. Si cambias una regla de negocio, actualiza en el mismo PR la sección "Reglas de negocio" de este archivo y el README del servicio.
