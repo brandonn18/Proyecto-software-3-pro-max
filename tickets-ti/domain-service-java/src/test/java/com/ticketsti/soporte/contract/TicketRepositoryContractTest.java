@@ -151,6 +151,48 @@ public abstract class TicketRepositoryContractTest {
         assertNotNull(c.getId());
     }
 
+    @Test
+    void guardaLasMarcasDeSla() {
+        Ticket t = Datos.ticket();                                       // ALTA: 80 % a los 384 min, vence a las 8 h
+        Instant alerta = Datos.AHORA.plus(Duration.ofMinutes(384));
+        Instant vence = Datos.AHORA.plus(Duration.ofHours(8));
+        t.verificarSla(alerta);
+        t.verificarSla(vence);
+        repo().guardar(t);
+
+        Ticket r = repo().buscarPorCodigo("TKT-2026-0001").orElseThrow();
+        assertEquals(alerta, r.getAlertaSlaEn());
+        assertEquals(vence, r.getSlaVencidoEn());
+        assertEquals(3, r.getHistorial().size());
+        assertEquals("SLA vencido", r.getHistorial().get(2).detalle());
+
+        Ticket sinMarcas = repo().guardar(Datos.ticket("TKT-2026-0002", "maria", Prioridad.BAJA));
+        assertNull(repo().buscarPorCodigo(sinMarcas.getCodigo()).orElseThrow().getAlertaSlaEn());
+        assertNull(repo().buscarPorCodigo(sinMarcas.getCodigo()).orElseThrow().getSlaVencidoEn());
+    }
+
+    @Test
+    void buscaLosVigentesSinSlaVencidoPorVencimiento() {
+        guardar("TKT-2026-0001", "m", Prioridad.BAJA, "hardware", 0);       // vence a las 72 h
+        guardar("TKT-2026-0002", "m", Prioridad.CRITICA, "hardware", 1);    // vence a las 4 h: primero
+        Ticket vencido = guardar("TKT-2026-0003", "m", Prioridad.ALTA, "hardware", 2);
+        vencido.verificarSla(Datos.AHORA.plus(Duration.ofHours(9)));
+        repo().guardar(vencido);                                            // ya marcado: no vuelve
+        Ticket resuelto = guardar("TKT-2026-0004", "m", Prioridad.MEDIA, "hardware", 3);
+        resuelto.asignarA("ana", "s", true, Datos.AHORA);
+        resuelto.cambiarEstado(EstadoTicket.EN_PROCESO, "ana", null, Datos.AHORA);
+        resuelto.cambiarEstado(EstadoTicket.RESUELTO, "ana", null, Datos.AHORA);
+        repo().guardar(resuelto);                                           // terminado: no vuelve
+        Ticket enEspera = guardar("TKT-2026-0005", "m", Prioridad.ALTA, "hardware", 4);
+        enEspera.asignarA("ana", "s", true, Datos.AHORA);
+        enEspera.cambiarEstado(EstadoTicket.EN_PROCESO, "ana", null, Datos.AHORA);
+        enEspera.cambiarEstado(EstadoTicket.EN_ESPERA, "ana", null, Datos.AHORA);
+        repo().guardar(enEspera);                                           // vigente: sí vuelve
+
+        assertEquals(List.of("TKT-2026-0002", "TKT-2026-0005", "TKT-2026-0001"),
+                repo().buscarVigentesSinSlaVencido().stream().map(Ticket::getCodigo).toList());
+    }
+
     private List<String> codigos(FiltroTicket f) {
         return repo().buscar(f).stream().map(Ticket::getCodigo).toList();
     }

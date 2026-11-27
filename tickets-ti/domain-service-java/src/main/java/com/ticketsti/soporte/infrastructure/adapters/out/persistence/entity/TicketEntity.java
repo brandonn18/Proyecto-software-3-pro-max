@@ -62,6 +62,13 @@ public class TicketEntity {
     @Column(nullable = false)
     private int reaperturas;
 
+    // M-01. Admiten null a propósito: así `ddl-auto: update` puede agregarlas a una tabla que ya tiene filas.
+    @Column(name = "alerta_sla_en")
+    private Instant alertaSlaEn;
+
+    @Column(name = "sla_vencido_en")
+    private Instant slaVencidoEn;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "ticket_historial", joinColumns = @JoinColumn(name = "ticket_id"))
     @OrderColumn(name = "orden")
@@ -103,5 +110,9 @@ public class TicketEntity {
     public void setVenceSla(Instant venceSla) { this.venceSla = venceSla; }
     public int getReaperturas() { return reaperturas; }
     public void setReaperturas(int reaperturas) { this.reaperturas = reaperturas; }
+    public Instant getAlertaSlaEn() { return alertaSlaEn; }
+    public void setAlertaSlaEn(Instant alertaSlaEn) { this.alertaSlaEn = alertaSlaEn; }
+    public Instant getSlaVencidoEn() { return slaVencidoEn; }
+    public void setSlaVencidoEn(Instant slaVencidoEn) { this.slaVencidoEn = slaVencidoEn; }
     public List<CambioEmbeddable> getHistorial() { return historial; }
 }
