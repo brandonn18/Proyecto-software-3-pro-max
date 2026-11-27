@@ -9,8 +9,8 @@ la ruta para ordenar el repositorio está en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md
 | Tema | Estado |
 |---|---|
 | Entregable | `domain-service-java/` (HU-8 a HU-12), Java 17 · Spring Boot 3.5.6 · hexagonal. |
-| Rama / PR | `feat/domain-service-java`, **PR #7 abierto**, pendiente de revisión del equipo. |
-| Pruebas | Última corrida local (2026-11-09, sobre el último commit de código): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Hay que repetirla antes del merge. |
+| Rama / PR | **PR #7 mezclado a `main`** con *merge commit* el 2026-11-26. Se conserva la rama `feat/domain-service-java`. |
+| Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. |
 | AuthCore | El que valida el servicio es el **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2). Solo expone `POST /api/auth/login`. **No está versionado en este repositorio** (ver fase B). |
 | Fuera del entregable | Alerta de SLA al 80 %, notificaciones, reportes, frontend React (ver sección 5). |
 | Código histórico | `backend/`, `domain-service/`, `frontend/`, `authcore/` (el del grupo), `infra/`, `herramientas/`, `nginx/`: siguen en el repositorio y deben ordenarse (sección 6). |
@@ -53,13 +53,13 @@ El orden importa: **A** bloquea a **C**; **B** bloquea el archivado de `authcore
 ### A. Cerrar la entrega (PR #7)
 
 - [ ] El equipo revisa el PR.
-- [ ] Ejecutar `mvn verify` y adjuntar la evidencia al PR (el profesor la pidió: "pruebas sin evidencia adjunta").
+- [x] Ejecutar `mvn verify` y adjuntar la evidencia al PR (el profesor la pidió: "pruebas sin evidencia adjunta"). Hecho el 2026-11-26: comentario en el PR #7.
 - [ ] Lista de verificación de la guía del profesor (sección 9 de `Guia_Domain_Service_TicketsTI.pdf`):
-  - [ ] Los cinco casos de uso probados con tokens ADMIN, TECNICO y USER, incluidos los 403.
+  - [ ] Los cinco casos de uso probados con tokens ADMIN, TECNICO y USER, incluidos los 403. Las pruebas automáticas ya los cubren (`TicketsRestTest`, `TokenAuthCoreDesplegadoRestTest`); falta la prueba con tokens reales (paso 8 de `DESPLIEGUE.md`).
   - [ ] El técnico registrado en este servicio tiene el mismo `username` que en el AuthCore y rol `ROLE_TECNICO`.
-  - [ ] El secreto no aparece en archivos versionados ni en capturas; las capturas de la nube no muestran IP públicas ni IDs de cuenta.
+  - [ ] El secreto no aparece en archivos versionados ni en capturas; las capturas de la nube no muestran IP públicas ni IDs de cuenta. Archivos versionados e historial revisados el 2026-11-26, sin hallazgos; faltan las capturas.
   - [ ] Poder explicar por qué `domain` no importa Spring y dibujar el recorrido de `POST /api/tickets` nombrando la clase de cada paso.
-- [ ] Mezclar a `main` con *merge commit*, como los PR anteriores (#1 a #6).
+- [x] Mezclar a `main` con *merge commit*, como los PR anteriores (#1 a #6). PR #7, 2026-11-26.
 
 ### B. Versionar el AuthCore desplegado sin secretos
 
