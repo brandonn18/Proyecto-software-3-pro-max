@@ -10,9 +10,9 @@ la ruta para ordenar el repositorio está en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md
 |---|---|
 | Entregable | `domain-service-java/` (HU-8 a HU-12), Java 17 · Spring Boot 3.5.6 · hexagonal. |
 | Rama / PR | **PR #7 mezclado a `main`** con *merge commit* el 2026-11-26. Se conserva la rama `feat/domain-service-java`. |
-| Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. |
+| Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. Con M-01 (PR #8): **138 pruebas**, todas en verde. |
 | AuthCore | El que valida el servicio es el **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2). Solo expone `POST /api/auth/login`. **No está versionado en este repositorio** (ver fase B). |
-| Fuera del entregable | Alerta de SLA al 80 %, notificaciones, reportes, frontend React (ver sección 5). |
+| Fuera del entregable | Notificaciones, reportes, frontend React (ver sección 5). La alerta de SLA al 80 % ya está hecha (M-01). |
 | Código histórico | `backend/`, `domain-service/`, `frontend/`, `authcore/` (el del grupo), `infra/`, `herramientas/`, `nginx/`: siguen en el repositorio y deben ordenarse (sección 6). |
 
 ## 2. Cómo empezar
@@ -98,7 +98,7 @@ Orden sugerido (de más a menos valor para la entrega; las tres primeras salen d
 
 | ID | Mejora | Origen | Dónde | Terminado cuando |
 |---|---|---|---|---|
-| M-01 | **Alerta de SLA al 80 % y marcado de vencidos.** Caso de uso `VerificarSla`, disparado por un adaptador de entrada programado (`@Scheduled`). | RF-09; guía §9 (nivel medio) | `application/port/in`, `application/service`, adaptador en `infrastructure/adapters/in` | Pruebas con `RelojAjustable` para 79 %, 80 % y vencido; decidir y probar cómo evitar alertar dos veces el mismo ticket. |
+| M-01 | [x] **Alerta de SLA al 80 % y marcado de vencidos.** Caso de uso `VerificarSla`, disparado por un adaptador de entrada programado (`@Scheduled`). **Hecho el 2026-11-26, PR #8**: `VerificarSlaUseCase` → `VerificacionSlaService` → `Ticket.verificarSla`, adaptador `adapters/in/programacion/VerificacionSlaProgramada`. Para no alertar dos veces, el ticket guarda las marcas `alertaSlaEn` y `slaVencidoEn`; reabrir las reinicia. | RF-09; guía §9 (nivel medio) | `application/port/in`, `application/service`, adaptador en `infrastructure/adapters/in` | Pruebas con `RelojAjustable` para 79 %, 80 % y vencido; decidir y probar cómo evitar alertar dos veces el mismo ticket. Cubierto por `SlaTicketTest`, `VerificacionSlaServiceTest`, `VerificacionSlaIntegracionTest` y el contrato del repositorio. |
 | M-02 | **Puerto `NotificacionPort`** con un adaptador que registre la creación, la asignación, la resolución y las alertas de M-01. Socket.io o correo serían adaptadores posteriores. | RF-10; guía §9 | `application/port/out`, adaptador en `infrastructure` | Se notifica en los tres eventos; los servicios no conocen el adaptador. |
 | M-03 | **Reportes**: resumen, cumplimiento de SLA y desempeño por técnico, solo ADMIN, con su propio puerto de solo lectura. | RF-12; guía §9 (avanzado) | puerto de consulta propio + adaptador JPA + controlador | Cada reporte con prueba de contrato; 403 para USER y TECNICO. |
 | M-04 | **Migraciones Flyway** en lugar de `ddl-auto: update` en el perfil `prod`. | Limitación conocida (`application-prod.yml`) | `pom.xml`, `src/main/resources/db/migration` | La base de la EC2 ya tiene tablas creadas por `update`: partir de un *baseline*, probar contra una copia y **no** aplicar en la EC2 sin el dueño. |
@@ -127,7 +127,7 @@ Pídelos o compártanlos por Drive. **Nunca** compartan el `.pem` de la EC2 ni e
 ## 5. Alcance
 
 - Dentro: HU-8 a HU-12. HU-1 a HU-7 son del AuthCore común.
-- Fuera por ahora: RF-09 (alerta al 80 %), RF-10 (notificaciones), RF-12 (reportes) y el frontend. Son las mejoras M-01 a M-03.
+- Fuera por ahora: RF-10 (notificaciones), RF-12 (reportes) y el frontend. Las dos primeras son las mejoras M-02 y M-03. RF-09 (alerta al 80 %) quedó cubierto con M-01.
 
 ## 6. Ordenar y limpiar el repositorio
 
