@@ -88,7 +88,7 @@ El orden importa: **A** bloquea a **C**; **B** bloquea el archivado de `authcore
 
 Detalle completo en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md) (resumen en la sección 6).
 
-- [x] **Hecha el 2026-11-26**, con las decisiones 2, 3 y 5 aprobadas por el equipo y el profesor, según confirmó uno de los autores:
+- [x] **Hecha el 2026-11-26, PR #16**, con las decisiones 2, 3 y 5 aprobadas por el equipo y el profesor, según confirmó uno de los autores:
   - etiqueta de respaldo `archivo/pre-limpieza-2026-11`;
   - un commit por bloque (monolito y herramientas; domain service Node; frontend y nginx, con el compose podado; plantillas ECS; documentos del monolito; `Diagramas/`);
   - README raíz reescrito y referencias actualizadas;

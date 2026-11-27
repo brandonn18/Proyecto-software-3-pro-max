@@ -2,7 +2,7 @@
 
 Ruta para retirar lo que ya no se usa sin perder nada. **No ejecutar ningún paso hasta cumplir los prerrequisitos.**
 
-> **Ejecutada el 2026-11-26** para todos los bloques salvo `authcore/`, que se conserva hasta resolver la decisión 1 y
+> **Ejecutada el 2026-11-26 (PR #16)** para todos los bloques salvo `authcore/`, que se conserva hasta resolver la decisión 1 y
 > la fase B. Respaldo: etiqueta `archivo/pre-limpieza-2026-11` (apunta a `ce5bc03`). Como `authcore/` sigue, el compose,
 > `package.json` y `.env.example` se podaron en vez de borrarse.
 Contexto y decisiones abiertas: [PENDIENTES.md](PENDIENTES.md). Reglas de trabajo: [CLAUDE.md](CLAUDE.md).
