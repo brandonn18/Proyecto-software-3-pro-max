@@ -13,8 +13,8 @@ Guía para agentes y colaboradores. Escrita en español.
 - Asignatura: Ingeniería del Software III (167420), Universidad de Pamplona.
 - Autores: Brandon Jair Martínez Ruda y Juan Esteban Basto Dávila.
 - Entregable actual: `tickets-ti/domain-service-java/`, un domain service en Java 17 / Spring Boot 3.5.6 con arquitectura hexagonal. Es el proyecto base del profesor, corregido por el grupo.
-- Alcance de este avance: HU-8 a HU-12 (crear con asignación automática, cambiar estado, reabrir, reasignar, consultar), más las mejoras M-01 (alerta de SLA al 80 % y marcado de vencidos, RF-09) y M-02 (notificaciones por `NotificacionPort`, RF-10).
-- Fuera de alcance por ahora: reportes y frontend React. Los reportes son la mejora M-03 de `PENDIENTES.md`.
+- Alcance de este avance: HU-8 a HU-12 (crear con asignación automática, cambiar estado, reabrir, reasignar, consultar), más las mejoras M-01 (alerta de SLA al 80 % y marcado de vencidos, RF-09), M-02 (notificaciones por `NotificacionPort`, RF-10) y M-03 (reportes para el ADMIN, RF-12).
+- Fuera de alcance por ahora: frontend React.
 
 ## Mapa de carpetas (`tickets-ti/`)
 
@@ -43,8 +43,8 @@ Históricas (no son fuente de verdad del estado actual):
 
 Paquete base `com.ticketsti.soporte`:
 
-- `domain/`: modelo y reglas (Ticket, Tecnico, Actor, estados, `PoliticaAsignacion`, `PoliticaAcceso`, excepciones). Sin frameworks.
-- `application/`: casos de uso (`TicketUseCase`, `TecnicoUseCase`, `VerificarSlaUseCase`), servicios, puertos (`port/in`, `port/out`) y el modelo de los avisos (`notificacion`). Sin Spring ni JPA.
+- `domain/`: modelo y reglas (Ticket, Tecnico, Actor, estados, `MedicionSla`, `PoliticaAsignacion`, `PoliticaAcceso`, excepciones). Sin frameworks.
+- `application/`: casos de uso (`TicketUseCase`, `TecnicoUseCase`, `VerificarSlaUseCase`, `ReporteUseCase`), servicios, puertos (`port/in`, `port/out`; los reportes leen por su propio puerto de solo lectura, `ReporteQueryPort`) y los modelos de avisos y reportes (`notificacion`, `reporte`). Sin Spring ni JPA.
 - `infrastructure/`: adaptadores de entrada REST (`adapters/in/rest`) y programados (`adapters/in/programacion`), de salida JPA (`adapters/out/persistence`) y de notificación (`adapters/out/notificacion`), seguridad JWT (`security`) y configuración (`config`).
 
 Dependencias permitidas: `infrastructure` → `application` → `domain`. `ArquitecturaHexagonalTest` (ArchUnit) lo verifica y rompe la build si se incumple.
@@ -60,6 +60,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 - SLA en horas corridas: CRITICA 4, ALTA 8, MEDIA 24, BAJA 72.
 - Alerta de SLA (M-01): un proceso programado revisa los tickets vigentes cada `negocio.sla.intervalo-verificacion` (por defecto `PT1M`). Al consumirse el 80 % del plazo registra una alerta; al cumplirse el plazo marca el ticket como vencido. Las dos quedan en el historial (`por: sistema`) y no cambian estado ni técnico. Cada una ocurre una sola vez por SLA (marcas `alertaSlaEn` y `slaVencidoEn` en el ticket) y reabrir las reinicia. Si venció sin alerta previa, solo se marca vencido. Los RESUELTO y CERRADO no se revisan.
 - Notificaciones (M-02): se avisa al crear, al asignar (automática o reasignación), al pasar a RESUELTO y en cada alerta y vencimiento de SLA. Los demás cambios de estado, la reapertura y el cierre no se avisan. Solo se avisa lo que quedó guardado, y una falla del canal no deshace la operación. Hoy el único canal es el log (`NotificacionRegistroAdapter`). El aviso no dice a quién avisar: lo decide cada canal.
+- Reportes (M-03), solo ADMIN (USER y TECNICO reciben 403): `GET /api/reportes/resumen` (totales por estado, prioridad y categoría; vigentes, sin asignar y vencidos sin resolver), `/sla` (cumplimiento total y por prioridad, vigentes vencidos y en riesgo) y `/tecnicos` (por técnico: vigentes, cumplimiento y minutos promedio de resolución). Un ticket resuelto o cerrado cumple el SLA si su última resolución fue antes del vencimiento de su SLA vigente; uno reabierto se mide con su nuevo plazo. «Vencido» y «en riesgo» se calculan con el reloj al generar el reporte, no con las marcas de M-01. El tiempo de resolución cuenta desde el inicio del plazo vigente.
 - Asignación automática: técnico de la categoría con menos tickets vigentes en esa categoría; empate, menor username. Sin técnicos, el ticket queda ABIERTO.
 - Reasignar: solo ADMIN, a un técnico registrado distinto del actual, nunca sobre tickets RESUELTO o CERRADO.
 - Visibilidad: USER ve los que creó; TECNICO, los que creó o tiene asignados; ADMIN, todos.
