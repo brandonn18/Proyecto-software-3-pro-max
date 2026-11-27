@@ -2,6 +2,7 @@ package com.ticketsti.soporte.infrastructure.adapters.in.programacion;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.ticketsti.soporte.application.notificacion.TipoNotificacion;
 import com.ticketsti.soporte.application.port.in.TecnicoUseCase;
 import com.ticketsti.soporte.application.port.in.TicketUseCase;
 import com.ticketsti.soporte.application.port.in.VerificarSlaUseCase;
@@ -11,6 +12,7 @@ import com.ticketsti.soporte.application.port.in.command.RegistrarTecnicoCommand
 import com.ticketsti.soporte.domain.model.EstadoTicket;
 import com.ticketsti.soporte.domain.model.Ticket;
 import com.ticketsti.soporte.testsupport.Datos;
+import com.ticketsti.soporte.testsupport.NotificacionesEnMemoria;
 import com.ticketsti.soporte.testsupport.RelojAjustable;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Encoders;
@@ -41,11 +43,18 @@ class VerificacionSlaIntegracionTest {
     }
 
     @TestConfiguration
-    static class RelojDePrueba {
+    static class DoblesDePrueba {
         @Bean
         @Primary
         RelojAjustable relojAjustable() {
             return Datos.relojAjustable();
+        }
+
+        /** Reemplaza al adaptador de registro para ver qué avisos salieron (M-02). */
+        @Bean
+        @Primary
+        NotificacionesEnMemoria notificacionesEnMemoria() {
+            return new NotificacionesEnMemoria();
         }
     }
 
@@ -53,6 +62,7 @@ class VerificacionSlaIntegracionTest {
     @Autowired private TecnicoUseCase tecnicos;
     @Autowired private VerificarSlaUseCase verificarSla;
     @Autowired private RelojAjustable reloj;
+    @Autowired private NotificacionesEnMemoria notificaciones;
 
     @Test
     @DisplayName("Alerta al 80 % y vencimiento quedan guardados, sin repetirse ni pisar el cambio de estado del técnico")
@@ -82,5 +92,9 @@ class VerificacionSlaIntegracionTest {
         assertEquals(conAlerta.getAlertaSlaEn(), vencido.getAlertaSlaEn());
         assertEquals("SLA vencido", vencido.getHistorial().get(vencido.getHistorial().size() - 1).detalle());
         assertTrue(verificarSla.verificar().sinNovedades(), "el vencimiento no debe repetirse");
+
+        // M-02: la aplicación real avisa por el puerto; pasar a EN_PROCESO no se notifica
+        assertEquals(List.of(TipoNotificacion.TICKET_CREADO, TipoNotificacion.TICKET_ASIGNADO,
+                TipoNotificacion.SLA_ALERTA_80, TipoNotificacion.SLA_VENCIDO), notificaciones.tipos());
     }
 }

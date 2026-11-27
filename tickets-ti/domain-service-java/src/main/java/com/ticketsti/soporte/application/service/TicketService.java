@@ -1,8 +1,12 @@
 package com.ticketsti.soporte.application.service;
 
+import static com.ticketsti.soporte.application.notificacion.TipoNotificacion.*;
+
+import com.ticketsti.soporte.application.notificacion.Notificacion;
 import com.ticketsti.soporte.application.port.in.TicketUseCase;
 import com.ticketsti.soporte.application.port.in.command.*;
 import com.ticketsti.soporte.application.query.FiltroTicket;
+import com.ticketsti.soporte.application.port.out.NotificacionPort;
 import com.ticketsti.soporte.application.port.out.TecnicoRepositoryPort;
 import com.ticketsti.soporte.application.port.out.TicketRepositoryPort;
 import com.ticketsti.soporte.application.port.out.TransaccionPort;
@@ -22,6 +26,7 @@ import java.util.Optional;
 /**
  * Casos de uso de tickets. Orden de validación en cada operación: datos obligatorios (400) -> existencia (404)
  * -> permiso (403) -> regla de estado (409). No contiene reglas de negocio propias: delega en el dominio.
+ * Los avisos (M-02) salen después de la transacción: solo se notifica lo que quedó guardado.
  */
 public class TicketService implements TicketUseCase {
 
@@ -31,15 +36,18 @@ public class TicketService implements TicketUseCase {
     private final Clock reloj;
     private final PoliticaAsignacion asignacion;
     private final PoliticaAcceso acceso;
+    private final Avisos avisos;
 
     public TicketService(TicketRepositoryPort tickets, TecnicoRepositoryPort tecnicos, TransaccionPort transaccion,
-                         Clock reloj, PoliticaAsignacion asignacion, PoliticaAcceso acceso) {
+                         Clock reloj, PoliticaAsignacion asignacion, PoliticaAcceso acceso,
+                         NotificacionPort notificaciones) {
         this.tickets = tickets;
         this.tecnicos = tecnicos;
         this.transaccion = transaccion;
         this.reloj = reloj;
         this.asignacion = asignacion;
         this.acceso = acceso;
+        this.avisos = new Avisos(notificaciones);
     }
 
     @Override
@@ -49,7 +57,7 @@ public class TicketService implements TicketUseCase {
         TipoTicket tipo = TipoTicket.de(c.tipo());
         Categoria categoria = Categoria.de(c.categoria());
         Prioridad prioridad = Prioridad.de(c.prioridad());
-        return transaccion.ejecutar(() -> {
+        Ticket creado = transaccion.ejecutar(() -> {
             Instant ahora = reloj.instant();
             int anio = LocalDate.ofInstant(ahora, reloj.getZone()).getYear();
             String codigo = Ticket.formatoCodigo(anio, tickets.siguienteConsecutivo(anio));
@@ -57,6 +65,9 @@ public class TicketService implements TicketUseCase {
             asignarAutomaticamente(ticket, categoria, ahora);
             return tickets.guardar(ticket);
         });
+        avisos.enviar(Notificacion.de(TICKET_CREADO, creado, creado.getHistorial().get(0)));
+        if (creado.getTecnico() != null) avisos.enviar(Notificacion.delUltimoCambio(TICKET_ASIGNADO, creado));
+        return creado;
     }
 
     private void asignarAutomaticamente(Ticket ticket, Categoria categoria, Instant ahora) {
@@ -72,12 +83,14 @@ public class TicketService implements TicketUseCase {
     public Ticket cambiarEstado(Actor actor, CambiarEstadoCommand c) {
         Validacion.exigir("código", c.codigo(), "estado", c.estado());
         EstadoTicket nuevo = EstadoTicket.de(c.estado());
-        return transaccion.ejecutar(() -> {
+        Ticket cambiado = transaccion.ejecutar(() -> {
             Ticket ticket = cargar(c.codigo());
             acceso.asegurarPuedeCambiarEstado(ticket, actor);
             ticket.cambiarEstado(nuevo, actor.username(), c.comentario(), reloj.instant());
             return tickets.guardar(ticket);
         });
+        if (nuevo == EstadoTicket.RESUELTO) avisos.enviar(Notificacion.delUltimoCambio(TICKET_RESUELTO, cambiado));
+        return cambiado;
     }
 
     @Override
@@ -95,13 +108,15 @@ public class TicketService implements TicketUseCase {
     public Ticket reasignar(Actor actor, ReasignarTicketCommand c) {
         acceso.asegurarAdmin(actor, "reasignar tickets");
         Validacion.exigir("código", c.codigo(), "técnico", c.tecnico());
-        return transaccion.ejecutar(() -> {
+        Ticket reasignado = transaccion.ejecutar(() -> {
             Ticket ticket = cargar(c.codigo());
             Tecnico destino = tecnicos.buscarPorUsername(c.tecnico().trim())
                     .orElseThrow(() -> new TecnicoNoEncontradoException(c.tecnico().trim()));
             ticket.asignarA(destino.getUsername(), actor.username(), false, reloj.instant());
             return tickets.guardar(ticket);
         });
+        avisos.enviar(Notificacion.delUltimoCambio(TICKET_ASIGNADO, reasignado));
+        return reasignado;
     }
 
     @Override

@@ -19,8 +19,10 @@ final class Escenario {
     final RelojAjustable reloj = Datos.relojAjustable();
 
     final TecnicoService tecnicoService = new TecnicoService(tecnicos, tx, new PoliticaAcceso());
-    final TicketService ticketService = new TicketService(tickets, tecnicos, tx, reloj, new PoliticaAsignacion(), new PoliticaAcceso());
-    final VerificacionSlaService slaService = new VerificacionSlaService(tickets, tx, reloj);
+    final NotificacionesEnMemoria notificaciones = new NotificacionesEnMemoria();
+    final TicketService ticketService = new TicketService(tickets, tecnicos, tx, reloj, new PoliticaAsignacion(), new PoliticaAcceso(),
+            notificaciones);
+    final VerificacionSlaService slaService = new VerificacionSlaService(tickets, tx, reloj, notificaciones);
 
     void tecnico(String username, String... categorias) {
         tecnicoService.registrar(Datos.admin(), new RegistrarTecnicoCommand(username, Arrays.asList(categorias)));
