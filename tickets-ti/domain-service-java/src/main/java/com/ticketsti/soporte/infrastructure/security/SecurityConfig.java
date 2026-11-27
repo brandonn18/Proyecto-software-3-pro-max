@@ -34,6 +34,8 @@ public class SecurityConfig {
                 // Los técnicos solo los gestiona el ADMIN. Los tickets los usa cualquier usuario autenticado:
                 // quién puede ver o modificar cada ticket lo decide el dominio (PoliticaAcceso), no la URL.
                 .requestMatchers("/api/tecnicos/**").hasRole("ADMIN")
+                // Los reportes (M-03), también solo el ADMIN; ReporteService lo vuelve a exigir con PoliticaAcceso.
+                .requestMatchers("/api/reportes/**").hasRole("ADMIN")
                 .requestMatchers("/api/tickets/**").authenticated()
                 // Lo demás se niega por defecto.
                 .anyRequest().denyAll())

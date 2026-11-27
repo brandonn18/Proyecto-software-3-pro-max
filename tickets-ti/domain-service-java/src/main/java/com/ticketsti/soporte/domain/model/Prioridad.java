@@ -19,9 +19,14 @@ public enum Prioridad {
         return horasSla;
     }
 
+    /** Plazo de atención como duración. */
+    public Duration plazo() {
+        return Duration.ofHours(horasSla);
+    }
+
     /** Momento en que vence el SLA de un ticket que empieza a contar en {@code desde}. */
     public Instant limiteDesde(Instant desde) {
-        return desde.plus(Duration.ofHours(horasSla));
+        return desde.plus(plazo());
     }
 
     public static Prioridad de(String texto) {
