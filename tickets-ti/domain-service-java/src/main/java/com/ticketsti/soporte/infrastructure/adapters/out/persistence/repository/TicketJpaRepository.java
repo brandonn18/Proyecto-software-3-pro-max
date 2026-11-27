@@ -21,4 +21,9 @@ public interface TicketJpaRepository extends JpaRepository<TicketEntity, Long>, 
             + "and t.estado in :vigentes group by t.tecnico")
     List<Object[]> contarVigentes(@Param("categoria") String categoria, @Param("usuarios") Collection<String> usuarios,
                                   @Param("vigentes") Collection<String> vigentes);
+
+    /** M-01: candidatos a revisar el SLA. El que vence antes, primero. */
+    @Query("select t from TicketEntity t where t.estado in :vigentes and t.slaVencidoEn is null "
+            + "order by t.venceSla asc, t.id asc")
+    List<TicketEntity> vigentesSinSlaVencido(@Param("vigentes") Collection<String> vigentes);
 }

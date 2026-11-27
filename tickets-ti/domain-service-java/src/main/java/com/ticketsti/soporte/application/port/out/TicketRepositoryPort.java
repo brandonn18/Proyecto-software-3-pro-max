@@ -22,4 +22,7 @@ public interface TicketRepositoryPort {
 
     /** Más recientes primero. */
     List<Ticket> buscar(FiltroTicket filtro);
+
+    /** Tickets vigentes que todavía no se marcaron como vencidos (M-01), el que vence antes primero. */
+    List<Ticket> buscarVigentesSinSlaVencido();
 }

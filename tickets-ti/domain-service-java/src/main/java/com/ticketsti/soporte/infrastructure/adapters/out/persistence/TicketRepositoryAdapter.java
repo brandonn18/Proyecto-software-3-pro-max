@@ -85,4 +85,10 @@ public class TicketRepositoryAdapter implements TicketRepositoryPort {
         return jpa.findAll(spec, Sort.by(Sort.Order.desc("creadoEn"), Sort.Order.desc("id")))
                 .stream().map(TicketMapper::aDominio).toList();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ticket> buscarVigentesSinSlaVencido() {
+        return jpa.vigentesSinSlaVencido(ESTADOS_VIGENTES).stream().map(TicketMapper::aDominio).toList();
+    }
 }

@@ -42,4 +42,9 @@ public class BeanConfig {
                                 Clock reloj, PoliticaAsignacion asignacion, PoliticaAcceso acceso) {
         return new TicketService(tickets, tecnicos, transaccion, reloj, asignacion, acceso);
     }
+
+    @Bean
+    VerificacionSlaService verificacionSlaService(TicketRepositoryPort tickets, TransaccionPort transaccion, Clock reloj) {
+        return new VerificacionSlaService(tickets, transaccion, reloj);
+    }
 }

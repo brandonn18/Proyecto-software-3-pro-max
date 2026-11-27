@@ -15,7 +15,8 @@ public final class TicketMapper {
                 c.getPor(), c.getCuando(), c.getDetalle())).toList();
         return Ticket.reconstruir(e.getId(), e.getCodigo(), e.getTitulo(), e.getDescripcion(), TipoTicket.valueOf(e.getTipo()),
                 Categoria.de(e.getCategoria()), Prioridad.valueOf(e.getPrioridad()), e.getCreadoPor(), e.getCreadoEn(),
-                EstadoTicket.valueOf(e.getEstado()), e.getTecnico(), e.getVenceSla(), e.getReaperturas(), historial);
+                EstadoTicket.valueOf(e.getEstado()), e.getTecnico(), e.getVenceSla(), e.getReaperturas(),
+                e.getAlertaSlaEn(), e.getSlaVencidoEn(), historial);
     }
 
     /** Copia el estado del dominio a la entidad (nueva o ya cargada). El historial solo crece: se reescribe completo. */
@@ -36,6 +37,8 @@ public final class TicketMapper {
         e.setCreadoEn(t.getCreadoEn());
         e.setVenceSla(t.getVenceSla());
         e.setReaperturas(t.getReaperturas());
+        e.setAlertaSlaEn(t.getAlertaSlaEn());
+        e.setSlaVencidoEn(t.getSlaVencidoEn());
         e.getHistorial().clear();
         for (CambioTicket c : t.getHistorial()) {
             e.getHistorial().add(new CambioEmbeddable(c.de() == null ? null : c.de().name(), c.a().name(), c.por(), c.cuando(), c.detalle()));

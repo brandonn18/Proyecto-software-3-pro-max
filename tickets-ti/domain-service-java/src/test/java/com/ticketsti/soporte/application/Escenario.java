@@ -20,6 +20,7 @@ final class Escenario {
 
     final TecnicoService tecnicoService = new TecnicoService(tecnicos, tx, new PoliticaAcceso());
     final TicketService ticketService = new TicketService(tickets, tecnicos, tx, reloj, new PoliticaAsignacion(), new PoliticaAcceso());
+    final VerificacionSlaService slaService = new VerificacionSlaService(tickets, tx, reloj);
 
     void tecnico(String username, String... categorias) {
         tecnicoService.registrar(Datos.admin(), new RegistrarTecnicoCommand(username, Arrays.asList(categorias)));

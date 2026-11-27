@@ -21,3 +21,6 @@ seguridad:
 
 negocio:
   zona-horaria: America/Bogota
+  sla:
+    # M-01: cada cuánto se buscan tickets al 80 % del SLA o vencidos (formato ISO-8601: PT1M = 1 minuto).
+    intervalo-verificacion: PT1M

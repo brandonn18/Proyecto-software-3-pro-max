@@ -3,10 +3,12 @@ package com.ticketsti.soporte.domain.model;
 import com.ticketsti.soporte.domain.exception.TicketEstadoInvalidoException;
 import com.ticketsti.soporte.domain.exception.ValorInvalidoException;
 import com.ticketsti.soporte.domain.vo.Categoria;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -18,7 +20,11 @@ public class Ticket {
     /** Tope de comentarios y motivos que quedan en el historial. */
     public static final int LIMITE_TEXTO = 500;
 
+    /** Porcentaje del plazo del SLA a partir del cual se alerta (RF-09). */
+    public static final int PORCENTAJE_ALERTA_SLA = 80;
+
     private static final Pattern CODIGO = Pattern.compile("TKT-\\d{4}-\\d{4,}");
+    private static final String SISTEMA = "sistema";
 
     private final Long id;
     private final String codigo;
@@ -33,11 +39,16 @@ public class Ticket {
     private String tecnico;
     private Instant venceSla;
     private int reaperturas;
+    /** Cuándo se alertó el 80 % del SLA vigente, o null. Evita alertar dos veces. */
+    private Instant alertaSlaEn;
+    /** Cuándo se marcó vencido el SLA vigente, o null. Evita marcarlo dos veces. */
+    private Instant slaVencidoEn;
     private final List<CambioTicket> historial;
 
     private Ticket(Long id, String codigo, String titulo, String descripcion, TipoTicket tipo, Categoria categoria,
                    Prioridad prioridad, String creadoPor, Instant creadoEn, EstadoTicket estado, String tecnico,
-                   Instant venceSla, int reaperturas, List<CambioTicket> historial) {
+                   Instant venceSla, int reaperturas, Instant alertaSlaEn, Instant slaVencidoEn,
+                   List<CambioTicket> historial) {
         this.id = id;
         this.codigo = codigo;
         this.titulo = titulo;
@@ -51,6 +62,8 @@ public class Ticket {
         this.tecnico = tecnico;
         this.venceSla = venceSla;
         this.reaperturas = reaperturas;
+        this.alertaSlaEn = alertaSlaEn;
+        this.slaVencidoEn = slaVencidoEn;
         this.historial = new ArrayList<>(historial);
     }
 
@@ -77,7 +90,7 @@ public class Ticket {
             throw new ValorInvalidoException("No se pudo identificar quién crea el ticket");
         }
         Ticket t = new Ticket(null, codigo, titulo.trim(), descripcion.trim(), tipo, categoria, prioridad, creadoPor,
-                ahora, EstadoTicket.ABIERTO, null, prioridad.limiteDesde(ahora), 0, List.of());
+                ahora, EstadoTicket.ABIERTO, null, prioridad.limiteDesde(ahora), 0, null, null, List.of());
         t.historial.add(new CambioTicket(null, EstadoTicket.ABIERTO, creadoPor, ahora, "Ticket creado"));
         return t;
     }
@@ -85,9 +98,9 @@ public class Ticket {
     public static Ticket reconstruir(Long id, String codigo, String titulo, String descripcion, TipoTicket tipo,
                                      Categoria categoria, Prioridad prioridad, String creadoPor, Instant creadoEn,
                                      EstadoTicket estado, String tecnico, Instant venceSla, int reaperturas,
-                                     List<CambioTicket> historial) {
+                                     Instant alertaSlaEn, Instant slaVencidoEn, List<CambioTicket> historial) {
         return new Ticket(id, codigo, titulo, descripcion, tipo, categoria, prioridad, creadoPor, creadoEn, estado,
-                tecnico, venceSla, reaperturas, historial);
+                tecnico, venceSla, reaperturas, alertaSlaEn, slaVencidoEn, historial);
     }
 
     /**
@@ -144,8 +157,46 @@ public class Ticket {
         estado = EstadoTicket.ABIERTO;
         tecnico = null;
         venceSla = prioridad.limiteDesde(ahora);
+        alertaSlaEn = null;                 // SLA nuevo: sus avisos vuelven a empezar
+        slaVencidoEn = null;
         reaperturas++;
         historial.add(new CambioTicket(antes, estado, por, ahora, "Reabierto: " + motivo.trim()));
+    }
+
+    /** Momento en que se consume el {@value #PORCENTAJE_ALERTA_SLA} % del plazo del SLA vigente. */
+    public Instant momentoAlertaSla() {
+        Duration plazo = Duration.ofHours(prioridad.horasSla());
+        return venceSla.minus(plazo.multipliedBy(100 - PORCENTAJE_ALERTA_SLA).dividedBy(100));
+    }
+
+    /**
+     * Qué evento de SLA le corresponde en {@code ahora}, sin modificar el ticket. Solo cuentan los tickets vigentes.
+     * Si ya venció sin haber alertado, corresponde VENCIDO: la alerta del 80 % ya no tiene sentido.
+     */
+    public Optional<EventoSla> eventoSlaPendiente(Instant ahora) {
+        if (!estado.estaVigente() || slaVencidoEn != null) return Optional.empty();
+        if (!ahora.isBefore(venceSla)) return Optional.of(EventoSla.VENCIDO);
+        if (alertaSlaEn == null && !ahora.isBefore(momentoAlertaSla())) return Optional.of(EventoSla.ALERTA_80);
+        return Optional.empty();
+    }
+
+    /**
+     * Registra el evento de SLA pendiente, si hay uno, con su línea de historial. No cambia estado ni técnico.
+     * Cada evento queda marcado con su fecha, así una segunda verificación no lo repite.
+     */
+    public Optional<EventoSla> verificarSla(Instant ahora) {
+        Optional<EventoSla> evento = eventoSlaPendiente(ahora);
+        evento.ifPresent(e -> {
+            if (e == EventoSla.VENCIDO) {
+                slaVencidoEn = ahora;
+                historial.add(new CambioTicket(estado, estado, SISTEMA, ahora, "SLA vencido"));
+            } else {
+                alertaSlaEn = ahora;
+                historial.add(new CambioTicket(estado, estado, SISTEMA, ahora,
+                        "Alerta de SLA: se consumió el " + PORCENTAJE_ALERTA_SLA + " % del plazo"));
+            }
+        });
+        return evento;
     }
 
     public Long getId() { return id; }
@@ -162,5 +213,9 @@ public class Ticket {
     public String getTecnico() { return tecnico; }
     public Instant getVenceSla() { return venceSla; }
     public int getReaperturas() { return reaperturas; }
+    /** Cuándo se alertó el 80 % del SLA vigente, o null. */
+    public Instant getAlertaSlaEn() { return alertaSlaEn; }
+    /** Cuándo se marcó vencido el SLA vigente, o null. */
+    public Instant getSlaVencidoEn() { return slaVencidoEn; }
     public List<CambioTicket> getHistorial() { return Collections.unmodifiableList(historial); }
 }

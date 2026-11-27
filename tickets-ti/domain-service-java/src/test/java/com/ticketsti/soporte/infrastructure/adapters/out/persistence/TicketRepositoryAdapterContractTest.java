@@ -31,6 +31,7 @@ class TicketRepositoryAdapterContractTest extends TicketRepositoryContractTest {
             public long siguienteConsecutivo(int anio) { return adaptador.siguienteConsecutivo(anio); }
             public Map<String, Long> contarVigentesPorTecnico(Categoria c, Collection<String> u) { return adaptador.contarVigentesPorTecnico(c, u); }
             public List<Ticket> buscar(FiltroTicket f) { return adaptador.buscar(f); }
+            public List<Ticket> buscarVigentesSinSlaVencido() { return adaptador.buscarVigentesSinSlaVencido(); }
         };
     }
 }

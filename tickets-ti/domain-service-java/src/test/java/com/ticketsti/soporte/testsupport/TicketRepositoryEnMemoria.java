@@ -15,7 +15,7 @@ public class TicketRepositoryEnMemoria implements TicketRepositoryPort {
     private static Ticket copiar(long id, Ticket t) {
         return Ticket.reconstruir(id, t.getCodigo(), t.getTitulo(), t.getDescripcion(), t.getTipo(), t.getCategoria(),
                 t.getPrioridad(), t.getCreadoPor(), t.getCreadoEn(), t.getEstado(), t.getTecnico(), t.getVenceSla(),
-                t.getReaperturas(), t.getHistorial());
+                t.getReaperturas(), t.getAlertaSlaEn(), t.getSlaVencidoEn(), t.getHistorial());
     }
 
     @Override
@@ -67,5 +67,14 @@ public class TicketRepositoryEnMemoria implements TicketRepositoryPort {
         }
         r.sort(Comparator.comparing(Ticket::getCreadoEn).thenComparing(Ticket::getId).reversed());
         return r;
+    }
+
+    @Override
+    public List<Ticket> buscarVigentesSinSlaVencido() {
+        return filas.values().stream()
+                .filter(t -> t.getEstado().estaVigente() && t.getSlaVencidoEn() == null)
+                .sorted(Comparator.comparing(Ticket::getVenceSla).thenComparing(Ticket::getId))
+                .map(t -> copiar(t.getId(), t))
+                .toList();
     }
 }
