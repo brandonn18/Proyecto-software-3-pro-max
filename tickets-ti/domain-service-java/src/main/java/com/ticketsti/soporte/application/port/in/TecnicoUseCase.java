@@ -10,4 +10,7 @@ public interface TecnicoUseCase {
     Tecnico registrar(Actor actor, RegistrarTecnicoCommand comando);
 
     List<Tecnico> listar(Actor actor);
+
+    /** Un técnico se identifica por su usuario, el mismo que tiene en AuthCore. Solo el ADMIN lo consulta. */
+    Tecnico porUsername(Actor actor, String username);
 }

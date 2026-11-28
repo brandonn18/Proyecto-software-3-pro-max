@@ -65,6 +65,10 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 - Visibilidad: USER ve los que creó; TECNICO, los que creó o tiene asignados; ADMIN, todos.
 - Consulta por páginas (M-05): `GET /api/tickets` acepta `page` (desde 0) y `size` (1 a 100, 20 por defecto), ambos opcionales. Sin ninguno de los dos devuelve la lista completa, como antes. La visibilidad y los filtros se aplican antes de paginar; el orden es más recientes primero, con el id como desempate. La cabecera `X-Total-Count` va siempre, con el total que cumple la consulta. Fuera de rango, o con un parámetro desconocido, responde 400.
 - Errores: 400 datos inválidos, 401 sin token válido, 403 sin permiso, 404 no existe, 409 transición/duplicado/concurrencia, 422 otra regla de negocio, 500 error interno.
+- Ruta que no existe: 401 sin token y 404 con token, nunca 403 (`SecurityConfig` termina en `anyRequest().authenticated()`, no en `denyAll()`).
+- Orden de los errores: datos (400) → existe (404) → permiso (403) → estado (409). Excepciones fijadas por `TicketsRestTest`: reasignar exige ADMIN antes de leer el cuerpo, y reabrir comprueba el permiso antes de exigir el motivo (sin permiso y con el cuerpo vacío, 403).
+- Técnicos: `POST /api/tecnicos` (201 con `Location: /api/tecnicos/{username}`), `GET /api/tecnicos` y `GET /api/tecnicos/{username}`, todos solo ADMIN. Un técnico se identifica por su usuario, no por el id interno.
+- Pendiente de decisión (PENDIENTES.md, decisión 7): un ticket que existe pero no es visible responde 403 (lo pide HU-12) y uno que no existe, 404, lo que permite saber qué códigos existen. No se cambió: contradice el criterio de la HU.
 - Decisiones del Excel del profesor: confirmadas por el grupo.
 
 ## Integración con AuthCore

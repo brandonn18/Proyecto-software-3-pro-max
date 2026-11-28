@@ -5,6 +5,7 @@ import com.ticketsti.soporte.application.port.in.command.RegistrarTecnicoCommand
 import com.ticketsti.soporte.application.port.out.TecnicoRepositoryPort;
 import com.ticketsti.soporte.application.port.out.TransaccionPort;
 import com.ticketsti.soporte.domain.exception.TecnicoDuplicadoException;
+import com.ticketsti.soporte.domain.exception.TecnicoNoEncontradoException;
 import com.ticketsti.soporte.domain.model.Actor;
 import com.ticketsti.soporte.domain.model.Tecnico;
 import com.ticketsti.soporte.domain.service.PoliticaAcceso;
@@ -41,5 +42,13 @@ public class TecnicoService implements TecnicoUseCase {
     public List<Tecnico> listar(Actor actor) {
         acceso.asegurarAdmin(actor, "consultar los técnicos");
         return tecnicos.listar();
+    }
+
+    @Override
+    public Tecnico porUsername(Actor actor, String username) {
+        acceso.asegurarAdmin(actor, "consultar los técnicos");
+        Validacion.exigir("usuario", username);
+        String buscado = username.trim();
+        return tecnicos.buscarPorUsername(buscado).orElseThrow(() -> new TecnicoNoEncontradoException(buscado));
     }
 }

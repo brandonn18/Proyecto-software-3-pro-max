@@ -27,8 +27,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Casos de uso de tickets. Orden de validación en cada operación: datos obligatorios (400) -> existencia (404)
- * -> permiso (403) -> regla de estado (409). No contiene reglas de negocio propias: delega en el dominio.
+ * Casos de uso de tickets. Orden general de los errores: datos obligatorios o con valor desconocido (400) -> el ticket
+ * existe (404) -> permiso (403) -> regla de estado (409). Dos operaciones lo ajustan, y las pruebas REST lo fijan:
+ * <ul>
+ *   <li>{@code reasignar} exige ser ADMIN antes de mirar el cuerpo: quien no lo es recibe 403 aunque falten datos.</li>
+ *   <li>{@code reabrir} valida el código, busca el ticket (404) y comprueba el permiso (403) antes de exigir el motivo
+ *       (400), que valida el dominio; después viene la regla de estado (409).</li>
+ * </ul>
+ * No contiene reglas de negocio propias: delega en el dominio.
  * Los avisos (M-02) salen después de la transacción: solo se notifica lo que quedó guardado.
  */
 public class TicketService implements TicketUseCase {

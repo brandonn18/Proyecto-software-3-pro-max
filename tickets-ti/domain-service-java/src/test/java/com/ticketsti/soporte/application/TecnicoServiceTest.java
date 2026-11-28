@@ -47,6 +47,19 @@ class TecnicoServiceTest {
     }
 
     @Test
+    @DisplayName("El ADMIN consulta un técnico por su usuario; otro rol 403; uno desconocido 404")
+    void consultaUnTecnicoPorSuUsuario() {
+        e.tecnico("ana", "redes");
+        Tecnico t = e.tecnicoService.porUsername(Datos.admin(), " ana ");
+        assertEquals("ana", t.getUsername());
+        assertTrue(t.atiende(Categoria.de("redes")));
+        assertThrows(AccesoDenegadoException.class, () -> e.tecnicoService.porUsername(Datos.usuario("maria"), "ana"));
+        assertThrows(AccesoDenegadoException.class, () -> e.tecnicoService.porUsername(Datos.tecnico("ana"), "ana"));
+        assertThrows(TecnicoNoEncontradoException.class, () -> e.tecnicoService.porUsername(Datos.admin(), "fantasma"));
+        assertThrows(ValorInvalidoException.class, () -> e.tecnicoService.porUsername(Datos.admin(), " "));
+    }
+
+    @Test
     void noSeRegistraDosVecesElMismoUsuario() {
         e.tecnico("ana", "redes");
         assertThrows(TecnicoDuplicadoException.class,

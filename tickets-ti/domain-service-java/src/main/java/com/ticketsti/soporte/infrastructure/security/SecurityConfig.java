@@ -37,8 +37,9 @@ public class SecurityConfig {
                 // Los reportes (M-03), también solo el ADMIN; ReporteService lo vuelve a exigir con PoliticaAcceso.
                 .requestMatchers("/api/reportes/**").hasRole("ADMIN")
                 .requestMatchers("/api/tickets/**").authenticated()
-                // Lo demás se niega por defecto.
-                .anyRequest().denyAll())
+                // Cualquier otra ruta exige un token. Si no existe, el 404 lo da el RestExceptionHandler: con denyAll()
+                // un cliente autenticado recibía 403 («no puedes») por escribir mal una URL.
+                .anyRequest().authenticated())
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) -> escribir(res, 401, "No autenticado: falta un token válido"))
                 .accessDeniedHandler((req, res, ex) -> escribir(res, 403, "No tiene permiso para esta operación")))

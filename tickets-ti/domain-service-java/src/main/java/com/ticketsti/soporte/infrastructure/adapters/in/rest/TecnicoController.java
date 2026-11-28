@@ -5,9 +5,11 @@ import com.ticketsti.soporte.application.port.in.command.RegistrarTecnicoCommand
 import com.ticketsti.soporte.infrastructure.adapters.in.rest.dto.TecnicoRequest;
 import com.ticketsti.soporte.infrastructure.adapters.in.rest.dto.TecnicoResponse;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriUtils;
 
 /** Técnicos y las categorías que atienden: gestión exclusiva del administrador (HU-8, asignación automática). */
 @RestController
@@ -20,14 +22,21 @@ public class TecnicoController {
         this.tecnicos = tecnicos;
     }
 
+    /** El {@code Location} apunta a {@link #obtener}: un técnico se identifica por su usuario, no por el id interno. */
     @PostMapping
     public ResponseEntity<TecnicoResponse> registrar(@RequestBody TecnicoRequest r) {
         var t = tecnicos.registrar(ActorActual.obtener(), new RegistrarTecnicoCommand(r.username(), r.categorias()));
-        return ResponseEntity.created(URI.create("/api/tecnicos/" + t.getId())).body(TecnicoResponse.de(t));
+        String ruta = "/api/tecnicos/" + UriUtils.encodePathSegment(t.getUsername(), StandardCharsets.UTF_8);
+        return ResponseEntity.created(URI.create(ruta)).body(TecnicoResponse.de(t));
     }
 
     @GetMapping
     public List<TecnicoResponse> listar() {
         return tecnicos.listar(ActorActual.obtener()).stream().map(TecnicoResponse::de).toList();
+    }
+
+    @GetMapping("/{username}")
+    public TecnicoResponse obtener(@PathVariable String username) {
+        return TecnicoResponse.de(tecnicos.porUsername(ActorActual.obtener(), username));
     }
 }

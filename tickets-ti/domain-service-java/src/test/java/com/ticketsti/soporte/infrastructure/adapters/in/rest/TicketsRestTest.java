@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,6 +14,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.io.Encoders;
 import io.jsonwebtoken.security.Keys;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -96,13 +98,12 @@ class TicketsRestTest {
     }
 
     @Test
-    @DisplayName("Los técnicos los gestiona solo el ADMIN; lo que no es /api está denegado")
+    @DisplayName("Los técnicos los gestiona solo el ADMIN")
     void permisosDeTecnicos() throws Exception {
         String t = unico("tec");
         mvc.perform(con(post("/api/tecnicos"), token("maria", "USER"), "{\"username\":\"x\",\"categorias\":[\"redes\"]}")).andExpect(status().isForbidden());
         mvc.perform(con(post("/api/tecnicos"), token("ana", "TECNICO"), "{\"username\":\"x\",\"categorias\":[\"redes\"]}")).andExpect(status().isForbidden());
         mvc.perform(con(get("/api/tecnicos"), token("maria", "USER"), null)).andExpect(status().isForbidden());
-        mvc.perform(con(get("/otra/cosa"), admin(), null)).andExpect(status().isForbidden());
         registrarTecnico(t, "redes");
         mvc.perform(con(get("/api/tecnicos"), admin(), null)).andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].username").value(hasItem(t)));
@@ -276,5 +277,52 @@ class TicketsRestTest {
         mvc.perform(con(get("/api/tickets/TKT-2026-0001/inexistente"), admin(), null))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @DisplayName("Una ruta que no existe responde 404 con token y 401 sin token; nunca 403")
+    void rutaQueNoExisteNoEs403() throws Exception {
+        mvc.perform(con(get("/api/inexistente"), admin(), null))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+        mvc.perform(con(get("/otra/cosa"), token("maria", "USER"), null)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/inexistente")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/otra/cosa")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /api/tecnicos devuelve un Location que se puede consultar, solo el ADMIN")
+    void locationDelTecnicoApuntaAUnaRutaQueExiste() throws Exception {
+        String usuario = unico("tec con espacio "), cat = unico("CAT");
+        String location = mvc.perform(con(post("/api/tecnicos"), admin(),
+                        "{\"username\":\"" + usuario + "\",\"categorias\":[\"" + cat + "\"]}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location");
+        assertEquals("/api/tecnicos/" + usuario.replace(" ", "%20"), location);
+
+        mvc.perform(con(get(URI.create(location)), admin(), null)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(usuario))
+                .andExpect(jsonPath("$.categorias[0]").value(cat));
+        mvc.perform(con(get(URI.create(location)), token("maria", "USER"), null)).andExpect(status().isForbidden());
+        mvc.perform(get(URI.create(location))).andExpect(status().isUnauthorized());
+        mvc.perform(con(get("/api/tecnicos/fantasma"), admin(), null)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("El permiso se evalúa antes que los datos: sin permiso y con cuerpo vacío es 403; con permiso, 400")
+    void elPermisoSeEvaluaAntesQueLosDatos() throws Exception {
+        String cat = unico("CAT"), tec = unico("tec");
+        registrarTecnico(tec, cat);
+        String codigo = crearTicket("maria", cat, "media");
+        String tecnico = token(tec, "TECNICO");
+        mvc.perform(con(patch("/api/tickets/" + codigo + "/status"), tecnico, estadoJson("en_proceso"))).andExpect(status().isOk());
+        mvc.perform(con(patch("/api/tickets/" + codigo + "/status"), tecnico, estadoJson("resuelto"))).andExpect(status().isOk());
+
+        // reabrir: quien no es dueño ni ADMIN recibe 403 aunque no mande motivo; el dueño recibe 400
+        mvc.perform(con(post("/api/tickets/" + codigo + "/reopen"), token("jose", "USER"), "{}")).andExpect(status().isForbidden());
+        mvc.perform(con(post("/api/tickets/" + codigo + "/reopen"), token("maria", "USER"), "{}")).andExpect(status().isBadRequest());
+        // reasignar: quien no es ADMIN recibe 403 aunque no indique técnico; el ADMIN recibe 400
+        mvc.perform(con(post("/api/tickets/" + codigo + "/assign"), token("maria", "USER"), "{}")).andExpect(status().isForbidden());
+        mvc.perform(con(post("/api/tickets/" + codigo + "/assign"), tecnico, "{}")).andExpect(status().isForbidden());
+        mvc.perform(con(post("/api/tickets/" + codigo + "/assign"), admin(), "{}")).andExpect(status().isBadRequest());
     }
 }
