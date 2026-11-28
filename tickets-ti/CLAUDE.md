@@ -21,7 +21,8 @@ Guía para agentes y colaboradores. Escrita en español.
 Entregable vigente:
 
 - `domain-service-java/`: servicio de dominio Java. Incluye `deploy/` (unidad systemd, ejemplo de variables y runbook de despliegue).
-- `authcore/`: AuthCore Java propio del grupo. **No es el desplegado**; el desplegado viene del Taller 2 (ver integración).
+- `authcore-desplegado/`: copia, sin secretos, del AuthCore que corre en la EC2 (`nubwiapp/login`, Taller 2). Es el que valida el domain service. Su `README.md` indica origen y commit copiado, variables de entorno, formato del JWT y los detalles pendientes del dueño. Es una copia de consulta: no se cambia su comportamiento sin confirmarlo con el dueño.
+- `authcore/`: AuthCore Java propio del grupo. **No es el desplegado** (ver integración).
 
 Documentos de trabajo: `PENDIENTES.md` (estado y hoja de ruta), `HISTORIAS_DE_USUARIO.md` (historias de RF-06 y RF-09 a RF-12), `LIMPIEZA_REPO.md` (cómo se retiró lo histórico). `docker-compose.yml`, `package.json` y `.env.example` solo sirven para levantar `authcore/` en local.
 
@@ -65,11 +66,15 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 - Visibilidad: USER ve los que creó; TECNICO, los que creó o tiene asignados; ADMIN, todos.
 - Consulta por páginas (M-05): `GET /api/tickets` acepta `page` (desde 0) y `size` (1 a 100, 20 por defecto), ambos opcionales. Sin ninguno de los dos devuelve la lista completa, como antes. La visibilidad y los filtros se aplican antes de paginar; el orden es más recientes primero, con el id como desempate. La cabecera `X-Total-Count` va siempre, con el total que cumple la consulta. Fuera de rango, o con un parámetro desconocido, responde 400.
 - Errores: 400 datos inválidos, 401 sin token válido, 403 sin permiso, 404 no existe, 409 transición/duplicado/concurrencia, 422 otra regla de negocio, 500 error interno.
+- Ruta que no existe: 401 sin token y 404 con token, nunca 403 (`SecurityConfig` termina en `anyRequest().authenticated()`, no en `denyAll()`).
+- Orden de los errores: datos (400) → existe (404) → permiso (403) → estado (409). Excepciones fijadas por `TicketsRestTest`: reasignar exige ADMIN antes de leer el cuerpo, y reabrir comprueba el permiso antes de exigir el motivo (sin permiso y con el cuerpo vacío, 403).
+- Técnicos: `POST /api/tecnicos` (201 con `Location: /api/tecnicos/{username}`), `GET /api/tecnicos` y `GET /api/tecnicos/{username}`, todos solo ADMIN. Un técnico se identifica por su usuario, no por el id interno.
+- Pendiente de decisión (PENDIENTES.md, decisión 7): un ticket que existe pero no es visible responde 403 (lo pide HU-12) y uno que no existe, 404, lo que permite saber qué códigos existen. No se cambió: contradice el criterio de la HU.
 - Decisiones del Excel del profesor: confirmadas por el grupo.
 
 ## Integración con AuthCore
 
-- AuthCore desplegado: repositorio `nubwiapp/login` (Taller 2), en una EC2 con Java 21, servicio systemd `login-api`, base MySQL en RDS, puerto 8080.
+- AuthCore desplegado: repositorio `nubwiapp/login` (Taller 2), en una EC2 con Java 21, servicio systemd `login-api`, base MySQL en RDS, puerto 8080. Su copia sin secretos está en `authcore-desplegado/` (commit `70a6901`); allí está su README.
 - Único endpoint usado: `POST /api/auth/login` con `{"username","password"}`. Responde 200 `{"token","username","role"}` o 401.
 - No hay endpoints de registro ni de asignación de roles: los usuarios se crean por SQL en la tabla `users(username, password BCrypt, role)`. Roles: `ROLE_ADMIN`, `ROLE_TECNICO`, `ROLE_USER`.
 - JWT del AuthCore desplegado: HS256, clave = secreto Base64 decodificado, claims `sub`, `role` (texto), `iat`, `exp`. Sin `uid` ni `roles[]`.

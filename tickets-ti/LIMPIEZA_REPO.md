@@ -24,7 +24,7 @@ No se mueve el código muerto a una carpeta `archivo/`: seguiría apareciendo en
 | Ruta (bajo `tickets-ti/`) | Qué es | Propuesta | Condición |
 |---|---|---|---|
 | `domain-service-java/` | **Entregable vigente.** | **Conservar** | — |
-| `authcore-desplegado/` | AuthCore desplegado, con secretos fuera (aún no existe). | **Crear** | Fase B de `PENDIENTES.md`. |
+| `authcore-desplegado/` | AuthCore desplegado, con secretos fuera. | **Creada el 2026-11-27** | Fase B de `PENDIENTES.md`. |
 | `PENDIENTES.md`, `LIMPIEZA_REPO.md`, `CLAUDE.md` | Documentos de trabajo. | **Conservar** | — |
 | `backend/` (63) | Monolito Node/Express, reemplazado. | Retirar | Solo el prerrequisito general. |
 | `herramientas/` (9) | `migrar-monolito`: utilidad del monolito. | Retirar con `backend/` | — |

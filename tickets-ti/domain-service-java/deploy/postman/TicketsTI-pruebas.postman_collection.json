@@ -173,6 +173,24 @@
             "method": "GET",
             "url": "{{dom_host}}/api/tickets"
           }
+        },
+        {
+          "name": "Ruta inexistente sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{dom_host}}/api/inexistente"
+          }
         }
       ]
     },
@@ -186,7 +204,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('201', () => pm.response.to.have.status(201));"
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.test('Location lleva al tecnico', () => pm.expect(pm.response.headers.get('Location')).to.eql('/api/tecnicos/tecnico1'));"
                 ],
                 "type": "text/javascript"
               }
@@ -246,6 +265,63 @@
           }
         },
         {
+          "name": "Consultar tecnico1 por usuario (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('es tecnico1', () => pm.expect(pm.response.json().username).to.eql('tecnico1'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/tecnicos/tecnico1"
+          }
+        },
+        {
+          "name": "Consultar un tecnico que no existe (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/tecnicos/fantasma"
+          }
+        },
+        {
           "name": "Metodo no permitido DELETE (405)",
           "event": [
             {
@@ -271,6 +347,34 @@
               ]
             },
             "url": "{{dom_host}}/api/tecnicos"
+          }
+        },
+        {
+          "name": "Ruta inexistente con token (404, no 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_admin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{dom_host}}/api/inexistente"
           }
         }
       ]

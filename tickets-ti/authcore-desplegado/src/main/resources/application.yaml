@@ -1,0 +1,239 @@
+# Copia de https://github.com/nubwiapp/login (commit 70a6901). Ver README.md de esta carpeta.
+# Único cambio respecto al original: url, username, password y jwt.secret tenían valores fijos.
+# Ahora vienen de DB_URL, DB_USERNAME, DB_PASSWORD y JWT_SECRET, sin valor por defecto:
+# si falta alguna variable, el servicio no arranca.
+
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │  application.yaml — Configuración central de la aplicación             │
+# │                                                                         │
+# │  IMPORTANTE PARA PRODUCCIÓN:                                           │
+# │  Los valores sensibles (passwords, secrets) NUNCA deben estar          │
+# │  hardcodeados aquí en producción. Usar variables de entorno:           │
+# │    password: ${DB_PASSWORD}                                            │
+# │    secret: ${JWT_SECRET}                                               │
+# │  Y definirlas en el servidor o en un vault de secretos.               │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# ── SPRING BOOT ──────────────────────────────────────────────────────────────
+spring:
+
+  # ── NOMBRE DE LA APLICACIÓN ───────────────────────────────────────────────
+  # Identificador de la aplicación en logs, actuator y Spring Cloud.
+  # Aparece en los logs como: [login] - Starting LoginApplication...
+  # En un sistema de microservicios, este nombre identifica el servicio.
+  application:
+    name: login
+
+  # ── BASE DE DATOS ──────────────────────────────────────────────────────────
+  datasource:
+
+    # URL de conexión JDBC a MySQL.
+    # Parámetros importantes:
+    #   useSSL=false: deshabilita SSL para desarrollo local.
+    #                 En producción: useSSL=true con certificados.
+    #   serverTimezone=UTC: evita problemas de zona horaria entre
+    #                       Java y MySQL. Siempre usar UTC en el servidor.
+    #   allowPublicKeyRetrieval=true: requerido para MySQL 8+ cuando
+    #                                 useSSL=false. Permite que el driver
+    #                                 obtenga la clave pública del servidor
+    #                                 para el intercambio de credenciales.
+    #   createDatabaseIfNotExist=true: crea la BD si no existe al conectar.
+    #                                  Útil en desarrollo para no tener que
+    #                                  crear la BD manualmente.
+    url: ${DB_URL}
+
+    # Credenciales de conexión.
+    # En producción: ${DB_USERNAME} y ${DB_PASSWORD} desde variables de entorno.
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+    # Driver JDBC explícito.
+    # Spring Boot lo detecta automáticamente desde el classpath,
+    # pero declararlo explícitamente hace la configuración más clara
+    # y evita ambigüedades si hay múltiples drivers en el classpath.
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    # Pool de conexiones HikariCP (el pool por defecto en Spring Boot 3.x).
+    # HikariCP es el pool más rápido y eficiente disponible para Java.
+    hikari:
+      # Número máximo de conexiones en el pool.
+      # Regla general: (núcleos_CPU * 2) + número_discos
+      # Para desarrollo: 10 es suficiente.
+      # Para producción: ajustar según carga real y capacidad de MySQL.
+      maximum-pool-size: 10
+
+      # Tiempo máximo que una conexión puede estar inactiva en el pool
+      # antes de ser eliminada (en milisegundos). 10 minutos.
+      idle-timeout: 600000
+
+      # Tiempo máximo de vida de una conexión en el pool (30 minutos).
+      # Evita usar conexiones que MySQL haya cerrado por inactividad.
+      # MySQL cierra conexiones inactivas después de wait_timeout (8 horas por defecto).
+      max-lifetime: 1800000
+
+      # Nombre del pool en logs y JMX. Facilita identificar el pool
+      # cuando hay múltiples datasources en la aplicación.
+      pool-name: ElectoralHikariPool
+
+  # ── JPA / HIBERNATE ────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      # Estrategia de actualización del esquema de base de datos al arrancar.
+      #
+      # Opciones disponibles:
+      #   create:      Borra y recrea todas las tablas en cada arranque.
+      #                PELIGROSO: pierdes todos los datos en cada reinicio.
+      #   create-drop: Como create pero también borra al apagar.
+      #                Solo útil para tests.
+      #   update:      Actualiza el esquema sin borrar datos existentes.
+      #                Agrega columnas/tablas que falten. NO elimina.
+      #                Adecuado para DESARROLLO.
+      #   validate:    Solo verifica que el esquema coincide con las entidades.
+      #                No modifica nada. Adecuado para PRODUCCIÓN.
+      #   none:        No hace nada con el esquema.
+      #                Usar con Flyway o Liquibase en PRODUCCIÓN.
+      #
+      # RECOMENDACIÓN:
+      #   Desarrollo:  update  (cómodo, agrega tablas automáticamente)
+      #   Producción:  validate + Flyway/Liquibase para migraciones controladas
+      ddl-auto: update
+
+    # Muestra el SQL generado por Hibernate en los logs.
+    # Útil en desarrollo para ver exactamente qué queries ejecuta JPA.
+    # En producción: false (llena los logs innecesariamente).
+    show-sql: true
+
+    properties:
+      hibernate:
+        # Formatea el SQL en los logs con indentación legible.
+        # Solo tiene efecto si show-sql: true.
+        # Sin format_sql: "SELECT u.id, u.username FROM users u WHERE u.username=?"
+        # Con format_sql:
+        #   SELECT
+        #     u.id, u.username
+        #   FROM
+        #     users u
+        #   WHERE
+        #     u.username=?
+        format_sql: true
+
+        # Dialecto SQL específico de MySQL.
+        # Hibernate usa esto para generar SQL con sintaxis compatible con MySQL 8+:
+        #   - AUTO_INCREMENT en lugar de SEQUENCE
+        #   - LIMIT/OFFSET para paginación
+        #   - Tipos de datos específicos de MySQL (TINYINT, etc.)
+        # Sin esto, Hibernate podría generar SQL no compatible con MySQL.
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  # ── JACKSON (Serialización JSON) ───────────────────────────────────────────
+  jackson:
+    # Formato de fechas en JSON.
+    # Sin esto, LocalDateTime se serializa como array: [2024,1,15,10,30,0]
+    # Con esto: "2024-01-15T10:30:00"
+    serialization:
+      write-dates-as-timestamps: false
+
+    # Deshabilita fallo cuando el JSON tiene propiedades desconocidas.
+    # Sin esto, si el cliente envía {"username":"a","password":"b","extra":"x"}
+    # Jackson lanzaría UnrecognizedPropertyException.
+    # Con esto, simplemente ignora "extra". Más robusto y tolerante.
+    deserialization:
+      fail-on-unknown-properties: false
+
+# ── JWT ──────────────────────────────────────────────────────────────────────
+# Configuración personalizada leída por JwtAdapter con @Value.
+# No es una propiedad de Spring: es nuestra propiedad custom.
+jwt:
+  # Clave secreta HMAC-SHA256 codificada en Base64.
+  #
+  # REQUISITOS TÉCNICOS:
+  #   - Mínimo 256 bits (32 bytes) para HMAC-SHA256.
+  #   - 32 bytes en Base64 = 44 caracteres (con padding =).
+  #   - JJWT lanza WeakKeyException si la clave tiene menos de 256 bits.
+  #
+  # CÓMO GENERAR UNA CLAVE SEGURA:
+  #   Linux/Mac: openssl rand -base64 32
+  #   Java:      Keys.secretKeyFor(SignatureAlgorithm.HS256)
+  #              luego Base64.getEncoder().encodeToString(key.getEncoded())
+  #
+  # EN PRODUCCIÓN:
+  #   secret: ${JWT_SECRET}
+  #   Y definir JWT_SECRET en las variables de entorno del servidor.
+  #   NUNCA hardcodear la clave en el código fuente ni en el repositorio.
+  secret: ${JWT_SECRET}
+
+  # Tiempo de vida del token en milisegundos.
+  #   3600000   = 1 hora
+  #   86400000  = 24 horas  ← valor actual
+  #   604800000 = 7 días
+  #
+  # RECOMENDACIÓN DE SEGURIDAD:
+  #   Tokens de corta duración (15-60 min) + refresh tokens son más seguros.
+  #   Si un token es robado, expira pronto. Sin refresh token, el usuario
+  #   debe re-autenticarse. Con refresh token, puede obtener uno nuevo
+  #   sin re-ingresar credenciales.
+  #   Para este proyecto: 24 horas es razonable para un sistema electoral
+  #   escolar donde la sesión puede durar todo el día de votación.
+  expiration: 86400000
+
+# ── SPRINGDOC OPENAPI (Swagger) ───────────────────────────────────────────────
+springdoc:
+  # Path donde se expone la UI de Swagger.
+  # Acceder en: http://localhost:8080/swagger-ui.html
+  swagger-ui:
+    path: /swagger-ui.html
+
+    # Ordena los endpoints alfabéticamente en la UI.
+    # Sin esto aparecen en el orden en que Spring los detecta (aleatorio).
+    operations-sorter: alpha
+
+    # Expande las operaciones por defecto al abrir Swagger.
+    # none: todo colapsado (recomendado cuando hay muchos endpoints)
+    # list: muestra la lista de operaciones
+    # full: muestra todo expandido
+    doc-expansion: none
+
+    # Muestra la duración de cada request en la UI de Swagger.
+    # Útil para identificar endpoints lentos durante el desarrollo.
+    display-request-duration: true
+
+  # Path donde se expone el JSON de OpenAPI.
+  # Usado por herramientas como Postman para importar la API automáticamente.
+  api-docs:
+    path: /v3/api-docs
+
+# ── SERVIDOR ──────────────────────────────────────────────────────────────────
+server:
+  # Puerto donde escucha la aplicación.
+  # 8080 es el puerto por defecto de Spring Boot.
+  # En producción usar 443 (HTTPS) con un reverse proxy (Nginx, Apache).
+  port: 8080
+
+  # Configuración del servlet
+  servlet:
+    # Context path: prefijo base para todos los endpoints.
+    # Con "/": http://localhost:8080/api/auth/login
+    # Con "/electoral": http://localhost:8080/electoral/api/auth/login
+    context-path: /
+
+# ── LOGGING ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    # Nivel de log para el paquete raíz de la aplicación.
+    # DEBUG: muestra todos los logs incluyendo de Spring internos.
+    # INFO:  muestra logs informativos (recomendado en producción).
+    com.login: DEBUG
+
+    # Nivel de log para Spring Security.
+    # DEBUG en desarrollo para ver qué decide el sistema de seguridad:
+    # "Attempting to match request against AntPathRequestMatcher..."
+    # "Secured [ROLE_USER]"
+    # En producción: WARN para solo ver problemas reales.
+    org.springframework.security: DEBUG
+
+    # Nivel de log para Hibernate SQL.
+    # Complementa show-sql: true con los valores de los parámetros.
+    # Sin esto: "WHERE u.username=?"
+    # Con esto: "WHERE u.username='admin'"
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

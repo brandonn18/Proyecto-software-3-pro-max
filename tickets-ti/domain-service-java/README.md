@@ -33,7 +33,7 @@ puerto `TransaccionPort`; el reloj se inyecta (`Clock`); los permisos viven en `
 | HU | Qué hace | Dónde |
 |---|---|---|
 | HU-1..7 | Autenticación AuthCore | `infrastructure/security` (valida el JWT) |
-| HU-8 | Crear ticket + asignación automática (+ técnicos y categorías) | `TicketService.crear`, `PoliticaAsignacion`, `POST /api/tickets`, `/api/tecnicos` |
+| HU-8 | Crear ticket + asignación automática (+ técnicos y categorías) | `TicketService.crear`, `PoliticaAsignacion`, `POST /api/tickets`, `POST` y `GET /api/tecnicos`, `GET /api/tecnicos/{username}` |
 | HU-9 | Cambiar estado con ciclo e historial | `EstadoTicket.siguientes`, `Ticket.cambiarEstado`, `PATCH /api/tickets/{codigo}/status` |
 | HU-10 | Reabrir con motivo y SLA reiniciado | `Ticket.reabrir`, `POST /api/tickets/{codigo}/reopen` |
 | HU-11 | Reasignar | `Ticket.asignarA`, `POST /api/tickets/{codigo}/assign` |
@@ -81,14 +81,18 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
   - `GET /api/reportes/tecnicos`: por técnico registrado, sus vigentes, su cumplimiento y los minutos promedio de resolución.
 
   Cumple el SLA el ticket cuya última resolución fue antes de vencer su SLA vigente; uno reabierto se mide con su nuevo plazo.
-- Errores: 400 datos inválidos · 403 sin permiso · 404 no existe · 409 transición no permitida/duplicado/concurrencia · 405 método no permitido · 415 tipo de contenido no soportado · 422 otra regla · 500 error interno.
+- Errores: 400 datos inválidos · 401 sin token válido · 403 sin permiso · 404 no existe · 409 transición no permitida/duplicado/concurrencia · 405 método no permitido · 415 tipo de contenido no soportado · 422 otra regla · 500 error interno.
+  - Una ruta que no existe responde 401 sin token y 404 con token; nunca 403.
+  - Orden en que se evalúan: datos (400) → el ticket existe (404) → permiso (403) → regla de estado (409). Dos excepciones: reasignar comprueba el rol ADMIN antes de leer el cuerpo, y reabrir comprueba el permiso antes de exigir el motivo. Sin permiso y con el cuerpo vacío, ambas dan 403, no 400.
+  - `POST /api/tecnicos` responde 201 con `Location: /api/tecnicos/{username}`, y esa ruta existe (solo ADMIN).
 - Concurrencia: `@Version` en las entidades y restricciones únicas (código, usuario del técnico) como última defensa.
 - Consecutivo del código (M-06): sale del contador de su año (tabla `contador_ticket`, migración V3), que se bloquea con `SELECT … FOR UPDATE` mientras se crea el ticket. Dos creaciones simultáneas no reciben el mismo número ni fallan: la segunda espera a la primera. La fila `anio = 0` es el candado para crear el contador de un año nuevo.
 
 ## Integración con el AuthCore desplegado y diferencias justificadas
 
-El servicio valida los JWT del AuthCore **desplegado** (repositorio del Taller 2, EC2 con Java 21, puerto 8080), no el
+El servicio valida los JWT del AuthCore **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2 con Java 21, puerto 8080), no el
 AuthCore Java del grupo (`tickets-ti/authcore/`). La validación es local, con la clave compartida; nunca se llama al AuthCore.
+Una copia del desplegado, sin secretos, está en [`../authcore-desplegado/`](../authcore-desplegado/README.md): allí se documentan su origen (commit `70a6901`), sus variables de entorno, el formato del JWT y los detalles pendientes del dueño.
 La tabla resume dónde se separa lo desplegado de la guía del curso:
 
 | Lo que pide el curso | Lo desplegado | Justificación |
@@ -103,7 +107,7 @@ Unidad systemd y ejemplo de variables: `deploy/domain-service.service` y `deploy
 ## Pendiente para el grupo
 
 1. La evidencia de `mvn verify` ya está en el PR #7.
-2. Si se quiere, un canal de aviso real (correo o Socket.io) como otro adaptador de `NotificacionPort`. El resto del backlog (M-04 a M-10) está en `PENDIENTES.md`.
+2. Si se quiere, un canal de aviso real (correo o Socket.io) como otro adaptador de `NotificacionPort`. El resto del backlog (M-08 a M-10) está en `PENDIENTES.md`.
 
 El orden de trabajo, el backlog completo de mejoras (M-01 a M-10), las decisiones abiertas y la ruta de limpieza del repositorio están en
 [`../PENDIENTES.md`](../PENDIENTES.md) y [`../LIMPIEZA_REPO.md`](../LIMPIEZA_REPO.md).

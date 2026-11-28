@@ -16,6 +16,10 @@ Content-Type: application/json
 GET {{host}}/api/tecnicos
 Authorization: Bearer {{tokenAdmin}}
 
+### Un técnico por su usuario (solo ADMIN); es la ruta que devuelve el Location del POST. Uno que no existe: 404
+GET {{host}}/api/tecnicos/ana
+Authorization: Bearer {{tokenAdmin}}
+
 ### HU-8: crear un ticket (cualquier usuario autenticado). Se asigna solo al técnico con menos carga.
 POST {{host}}/api/tickets
 Authorization: Bearer {{tokenUsuario}}
