@@ -11,7 +11,7 @@ la ruta para ordenar el repositorio está en [LIMPIEZA_REPO.md](LIMPIEZA_REPO.md
 | Entregable | `domain-service-java/` (HU-8 a HU-12), Java 17 · Spring Boot 3.5.6 · hexagonal. |
 | Rama / PR | **PR #7 mezclado a `main`** con *merge commit* el 2026-11-26. Se conserva la rama `feat/domain-service-java`. |
 | Pruebas | Última corrida local (2026-11-26, Temurin 17.0.21.1 + Maven 3.9.16, commit `41ed55f`): **115 pruebas, 0 fallos, 0 errores, 0 omitidas**. Evidencia en el PR #7. Con M-01 (PR #8): **138 pruebas**, todas en verde. Con M-02 (PR #9): **149 pruebas**, todas en verde. Con M-03 (PR #10): **169 pruebas**, todas en verde. Con M-04 (PR #11): **171 pruebas**, todas en verde. Con M-05 (PR #12): **181 pruebas**, todas en verde. Con M-06 (PR #13): **184 pruebas**, todas en verde. Con M-07 (PR #14): **192 pruebas**, todas en verde. Con las correcciones del contrato (rama `fix/contrato-servicio`, sección D): **196 pruebas**, todas en verde. |
-| AuthCore | El que valida el servicio es el **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2). Solo expone `POST /api/auth/login`. **No está versionado en este repositorio** (ver fase B). |
+| AuthCore | El que valida el servicio es el **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2). Solo expone `POST /api/auth/login`. Su copia sin secretos está en `tickets-ti/authcore-desplegado/` (2026-11-27, fase B). |
 | Fuera del entregable | Frontend React (ver sección 5). Ya están hechas M-01 (alerta de SLA al 80 %), M-02 (notificaciones; por ahora el único canal es el log) y M-03 (reportes para el ADMIN). |
 | Código histórico | **Retirado el 2026-11-26 (fase C):** `backend/`, `herramientas/`, `domain-service/`, `frontend/`, `nginx/`, `infra/`, los documentos del monolito y `Diagramas/`. Queda en la etiqueta `archivo/pre-limpieza-2026-11`. Sigue `authcore/` (el del grupo), que espera la decisión 1 y la fase B. |
 
@@ -65,11 +65,11 @@ El orden importa: **A** bloquea a **C**; **B** bloquea el archivado de `authcore
 
 **No modificar la EC2 ni el repositorio `nubwiapp/login`.** Todo cambio que altere el comportamiento del desplegado se confirma antes con su dueño.
 
-1. [ ] Pedir al dueño el visto bueno para incluir su código en este repositorio.
-2. [ ] Clonar `https://github.com/nubwiapp/login.git` **fuera** de este repositorio y copiar el código (sin `.git` ni `build/`) a `tickets-ti/authcore-desplegado/`. Es Gradle, Java 21, Spring Boot 3.4.1, paquete `com.login`, hexagonal. Una sola copia, sin historial, para no arrastrar secretos.
-3. [ ] **Antes de `git add`**: su `src/main/resources/application.yaml` trae por defecto un usuario/clave de base de datos y un `jwt.secret` en claro. Sustituirlos por `${DB_URL}`, `${DB_USERNAME}`, `${DB_PASSWORD}` y `${JWT_SECRET}` **sin valor por defecto** (que falle al arrancar si faltan, como hace este servicio).
+1. [ ] Pedir al dueño el visto bueno para incluir su código en este repositorio. La copia se hizo el 2026-11-27 a petición de uno de los autores; falta el visto bueno explícito del dueño.
+2. [x] Clonar `https://github.com/nubwiapp/login.git` **fuera** de este repositorio y copiar el código (sin `.git` ni `build/`) a `tickets-ti/authcore-desplegado/`. Es Gradle, Java 21, Spring Boot 3.4.1, paquete `com.login`, hexagonal. Una sola copia, sin historial, para no arrastrar secretos. Hecho el 2026-11-27, commit `70a6901`.
+3. [x] **Antes de `git add`**: su `src/main/resources/application.yaml` trae por defecto un usuario/clave de base de datos y un `jwt.secret` en claro. Sustituirlos por `${DB_URL}`, `${DB_USERNAME}`, `${DB_PASSWORD}` y `${JWT_SECRET}` **sin valor por defecto** (que falle al arrancar si faltan, como hace este servicio). Hecho; además, un comentario de `JwtAdapter.java` traía el secreto y se limpió. Se comprobó que ningún valor original queda en la copia.
 4. [ ] Preguntar al dueño si el secreto real de la EC2 coincide con el del repositorio público. Si coincide, está comprometido: debe rotarlo en el AuthCore **y** en `/etc/domain-service.env` del domain service, y reiniciar ambos (los tokens vigentes dejan de valer).
-5. [ ] Escribir `tickets-ti/authcore-desplegado/README.md`: variables de entorno, cómo compilar (`./gradlew test`), `POST /api/auth/login`, formato del JWT (HS256, claims `sub`, `role`, `iat`, `exp`) y cómo crear usuarios por SQL (ver paso 7 de `DESPLIEGUE.md`).
+5. [x] Escribir `tickets-ti/authcore-desplegado/README.md` (hecho; el build y el login se probaron con una MySQL desechable): variables de entorno, cómo compilar (`./gradlew test`), `POST /api/auth/login`, formato del JWT (HS256, claims `sub`, `role`, `iat`, `exp`) y cómo crear usuarios por SQL (ver paso 7 de `DESPLIEGUE.md`).
 6. [ ] Revisar con el dueño, uno por uno, estos detalles verificados el 2026-11-22 en el código desplegado. Cada uno cambia comportamiento:
 
    | Detalle | Hoy | Propuesta |
@@ -82,7 +82,7 @@ El orden importa: **A** bloquea a **C**; **B** bloquea el archivado de `authcore
    | Vigencia del token | 24 h (`jwt.expiration`) | Evaluar una vigencia más corta (el domain service no revoca tokens). |
    | Claim `role` | Existe, pero no está documentado | Documentarlo en el README del AuthCore. |
 
-7. [ ] Actualizar `CLAUDE.md` y `domain-service-java/README.md` para que apunten a `authcore-desplegado/`.
+7. [x] Actualizar `CLAUDE.md` y `domain-service-java/README.md` para que apunten a `authcore-desplegado/`. Hecho en `CLAUDE.md`, el `README.md` de la raíz y el del domain service.
 
 ### C. Ordenar y limpiar el repositorio
 

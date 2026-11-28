@@ -21,7 +21,8 @@ Guía para agentes y colaboradores. Escrita en español.
 Entregable vigente:
 
 - `domain-service-java/`: servicio de dominio Java. Incluye `deploy/` (unidad systemd, ejemplo de variables y runbook de despliegue).
-- `authcore/`: AuthCore Java propio del grupo. **No es el desplegado**; el desplegado viene del Taller 2 (ver integración).
+- `authcore-desplegado/`: copia, sin secretos, del AuthCore que corre en la EC2 (`nubwiapp/login`, Taller 2). Es el que valida el domain service. Su `README.md` indica origen y commit copiado, variables de entorno, formato del JWT y los detalles pendientes del dueño. Es una copia de consulta: no se cambia su comportamiento sin confirmarlo con el dueño.
+- `authcore/`: AuthCore Java propio del grupo. **No es el desplegado** (ver integración).
 
 Documentos de trabajo: `PENDIENTES.md` (estado y hoja de ruta), `HISTORIAS_DE_USUARIO.md` (historias de RF-06 y RF-09 a RF-12), `LIMPIEZA_REPO.md` (cómo se retiró lo histórico). `docker-compose.yml`, `package.json` y `.env.example` solo sirven para levantar `authcore/` en local.
 
@@ -73,7 +74,7 @@ Convenciones: los permisos viven en `PoliticaAcceso`, no en los controladores; e
 
 ## Integración con AuthCore
 
-- AuthCore desplegado: repositorio `nubwiapp/login` (Taller 2), en una EC2 con Java 21, servicio systemd `login-api`, base MySQL en RDS, puerto 8080.
+- AuthCore desplegado: repositorio `nubwiapp/login` (Taller 2), en una EC2 con Java 21, servicio systemd `login-api`, base MySQL en RDS, puerto 8080. Su copia sin secretos está en `authcore-desplegado/` (commit `70a6901`); allí está su README.
 - Único endpoint usado: `POST /api/auth/login` con `{"username","password"}`. Responde 200 `{"token","username","role"}` o 401.
 - No hay endpoints de registro ni de asignación de roles: los usuarios se crean por SQL en la tabla `users(username, password BCrypt, role)`. Roles: `ROLE_ADMIN`, `ROLE_TECNICO`, `ROLE_USER`.
 - JWT del AuthCore desplegado: HS256, clave = secreto Base64 decodificado, claims `sub`, `role` (texto), `iat`, `exp`. Sin `uid` ni `roles[]`.

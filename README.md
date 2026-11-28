@@ -16,7 +16,7 @@ la hoja de ruta. Las reglas de trabajo, arquitectura y negocio están en [`ticke
 | Servicio | Dónde | Tecnología | Qué hace |
 |---|---|---|---|
 | **Domain service** (entregable) | `tickets-ti/domain-service-java/`, puerto 8082 | Java 17, Spring Boot 3.5.6, Maven; H2 en desarrollo y MySQL (RDS) en producción; esquema con Flyway | Tickets, asignación automática, ciclo de estados, reapertura, reasignación, consulta por rol y por páginas, SLA y alertas, avisos, reportes |
-| **AuthCore desplegado** | Repositorio `nubwiapp/login` (Taller 2), en la EC2, puerto 8080. **No está versionado aquí** (fase B de `PENDIENTES.md`) | Java 21, Spring Boot, MySQL | `POST /api/auth/login`: emite el JWT (HS256, claim `role`) que valida el domain service |
+| **AuthCore desplegado** | Repositorio `nubwiapp/login` (Taller 2), en la EC2, puerto 8080. Copia sin secretos en `tickets-ti/authcore-desplegado/` (con su README: origen, variables, JWT) | Java 21, Spring Boot, MySQL | `POST /api/auth/login`: emite el JWT (HS256, claim `role`) que valida el domain service |
 | **AuthCore del grupo** | `tickets-ti/authcore/`, puerto 8081 | Java 21, Spring Boot 4.1, Gradle, PostgreSQL | Login, registro y asignación de roles (HU-1 y HU-3). No es el desplegado |
 
 ## Qué hace el domain service
@@ -57,6 +57,7 @@ mvn spring-boot:run                               # http://localhost:8082, H2 en
 README.md · CLAUDE.md
 tickets-ti/
 ├── domain-service-java/     entregable: código, pruebas, deploy/ (runbook, systemd, Postman), requests.http
+├── authcore-desplegado/     copia, sin secretos, del AuthCore que corre en la EC2 (nubwiapp/login)
 ├── authcore/                AuthCore Java del grupo (no es el desplegado)
 ├── PENDIENTES.md            estado, hoja de ruta por fases, backlog de mejoras, decisiones abiertas
 ├── CLAUDE.md                reglas de trabajo, arquitectura, reglas de negocio e integración con el AuthCore

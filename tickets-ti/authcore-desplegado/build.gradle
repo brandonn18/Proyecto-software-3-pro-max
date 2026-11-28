@@ -1,0 +1,93 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.login'
+version = '0.0.1-SNAPSHOT'
+description = 'login'
+
+java {
+    toolchain {
+        // Java 25 no es LTS y tiene soporte inestable en librerías de terceros
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    // Centralizar versión de JJWT: los tres artefactos DEBEN coincidir
+    // exactamente o habrá conflictos de classloader en runtime
+    jjwtVersion = '0.11.5'
+}
+
+dependencies {
+
+    // ── NÚCLEO WEB ───────────────────────────────────────────────────────
+    // spring-boot-starter-web es el nombre correcto.
+    // Incluye Spring MVC, Tomcat embebido y Jackson automáticamente.
+    // "webmvc" como artefacto standalone NO existe en Maven Central.
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // ── SEGURIDAD ────────────────────────────────────────────────────────
+    // Cadena de filtros HTTP donde se inserta JwtAuthFilter
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // ── PERSISTENCIA ─────────────────────────────────────────────────────
+    // Spring Data JPA + Hibernate para los adaptadores OUT de persistencia
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // ── VALIDACIÓN ───────────────────────────────────────────────────────
+    // Activa @Valid, @NotBlank, etc. en los controladores (infraestructura)
+    // El dominio nunca importa estas anotaciones
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // ── DOCUMENTACIÓN API ────────────────────────────────────────────────
+    // SpringDoc 2.x es la versión correcta para Spring Boot 3.x
+    // SpringDoc 3.x es experimental y solo para Spring Boot 4.x milestone
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
+
+    // ── JWT ──────────────────────────────────────────────────────────────
+    // jjwt-api: interfaces que el código de infraestructura compila contra
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    // jjwt-impl: implementación real de HMAC-SHA256, solo necesaria en runtime
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    // jjwt-jackson: serialización del payload JSON del token, solo en runtime
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // ── MYSQL ────────────────────────────────────────────────────────────
+    // runtimeOnly: el dominio nunca referencia el driver directamente
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // ── LOMBOK ───────────────────────────────────────────────────────────
+    // Solo para infraestructura. NUNCA se usa en domain ni application.
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // ── DESARROLLO ───────────────────────────────────────────────────────
+    // Recarga automática al guardar cambios sin reiniciar el servidor
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // ── TESTS ────────────────────────────────────────────────────────────
+    // spring-boot-starter-test: JUnit 5 + Mockito + AssertJ + Spring Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // spring-security-test: utilidades para testear endpoints protegidos
+    // con @WithMockUser, SecurityMockMvcRequestPostProcessors, etc.
+    testImplementation 'org.springframework.security:spring-security-test'
+
+    // Lombok en tests: para @Builder en objetos de prueba
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // JUnit Platform Launcher: requerido para ejecutar tests desde Gradle
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

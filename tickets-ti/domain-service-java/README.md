@@ -90,8 +90,9 @@ Pruebas manuales: `requests.http` (los tokens los emite AuthCore; no los guarde 
 
 ## Integración con el AuthCore desplegado y diferencias justificadas
 
-El servicio valida los JWT del AuthCore **desplegado** (repositorio del Taller 2, EC2 con Java 21, puerto 8080), no el
+El servicio valida los JWT del AuthCore **desplegado** (repositorio `nubwiapp/login`, Taller 2, EC2 con Java 21, puerto 8080), no el
 AuthCore Java del grupo (`tickets-ti/authcore/`). La validación es local, con la clave compartida; nunca se llama al AuthCore.
+Una copia del desplegado, sin secretos, está en [`../authcore-desplegado/`](../authcore-desplegado/README.md): allí se documentan su origen (commit `70a6901`), sus variables de entorno, el formato del JWT y los detalles pendientes del dueño.
 La tabla resume dónde se separa lo desplegado de la guía del curso:
 
 | Lo que pide el curso | Lo desplegado | Justificación |
